@@ -83,6 +83,23 @@
     .badge.legacy{color:#c98a12; background:rgba(210,153,34,.15); border-color:rgba(210,153,34,.42)}
     .badge.new{color:#2fa043; background:rgba(63,185,80,.15); border-color:rgba(63,185,80,.42)}
     .badge.other{color:var(--muted); background:var(--bg2); border-color:var(--line)}
+    /* tabs */
+    .tabs{display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid var(--line)}
+    .tab{font:600 14px 'Plus Jakarta Sans',sans-serif; color:var(--muted); background:none; border:0; border-bottom:2px solid transparent; padding:10px 15px; cursor:pointer; margin-bottom:-1px; display:inline-flex; align-items:center; gap:7px; transition:.12s}
+    .tab:hover{color:var(--text)}
+    .tab.active{color:var(--accent-2); border-bottom-color:var(--accent)}
+    .tab svg{width:16px; height:16px}
+    /* creator code chips */
+    .codes{display:flex; flex-wrap:wrap; gap:6px}
+    .codechip{display:inline-flex; flex-direction:column; gap:1px; background:var(--bg2); border:1px solid var(--line); border-radius:8px; padding:4px 9px; min-width:0}
+    .codechip .cl{font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--faint); font-weight:700}
+    .codechip .cv{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace; font-size:12px; color:var(--text); cursor:pointer}
+    .codechip .cv:hover{color:var(--accent-2)}
+    .codechip.bad{border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.08)}
+    .codechip.bad .cv{color:var(--bad)}
+    .badge.cr-ok{color:#2fa043; background:rgba(63,185,80,.15); border-color:rgba(63,185,80,.42)}
+    .badge.cr-mismatch{color:#c98a12; background:rgba(210,153,34,.15); border-color:rgba(210,153,34,.42)}
+    .badge.cr-missing{color:var(--bad); background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.42)}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
     .btn:hover{border-color:var(--line-hi)}
@@ -144,19 +161,42 @@
       </div>
     </div>
 
-    <div class="search">
-      <div class="searchrow">
-        <div class="field">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-          <input id="q" placeholder="Search title or code…  ( press /  to focus )" autocomplete="off" autofocus>
-          <button class="clear" id="clear" title="Clear (Esc)">✕</button>
-        </div>
-        <select id="src"><option value="">All datasets</option></select>
-      </div>
-      <div class="statusrow" id="status">Start typing to search…</div>
+    <div class="tabs">
+      <button class="tab active" data-tab="clips">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M10 9l5 3-5 3z"/></svg>Clips</button>
+      <button class="tab" data-tab="creators">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Creators</button>
     </div>
 
-    <div class="grid" id="results"></div>
+    <div id="tab-clips">
+      <div class="search">
+        <div class="searchrow">
+          <div class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <input id="q" placeholder="Search title or code…  ( press /  to focus )" autocomplete="off" autofocus>
+            <button class="clear" id="clear" title="Clear (Esc)">✕</button>
+          </div>
+          <select id="src"><option value="">All datasets</option></select>
+        </div>
+        <div class="statusrow" id="status">Start typing to search…</div>
+      </div>
+      <div class="grid" id="results"></div>
+    </div>
+
+    <div id="tab-creators" hidden>
+      <div class="search">
+        <div class="searchrow">
+          <div class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <input id="cq" placeholder="Search creator, asset label, or CS code…" autocomplete="off">
+            <button class="clear" id="cclear" title="Clear">✕</button>
+          </div>
+          <select id="cfilter"><option value="">All rows</option><option value="issues">Only mismatches / missing</option></select>
+        </div>
+        <div class="statusrow" id="cstatus">Loading creator list…</div>
+      </div>
+      <div class="grid" id="cresults"></div>
+    </div>
   </div>
 
   <!-- import modal -->
@@ -377,6 +417,90 @@
     let toastT; function showToast(m){ toast.textContent=m; toast.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>toast.classList.remove('show'),1600); }
     function play(){ return '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>'; }
     function copyIcon(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'; }
+
+    // ===== Tabs =====
+    document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    function switchTab(name){
+      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
+      $('tab-clips').hidden = name!=='clips';
+      $('tab-creators').hidden = name!=='creators';
+      $('importBtn').style.display = name==='clips' ? '' : 'none';   // Import only applies to clips
+      if(name==='creators'){ initCreators(); setTimeout(()=>$('cq').focus(), 30); }
+      else setTimeout(()=>$('q').focus(), 30);
+    }
+
+    // ===== Creators tab (live from Google Sheet) =====
+    const CREATORS_FEED = 'https://script.google.com/macros/s/AKfycbzV_WtBwPMWIpYwN3QRATfT8Ehj75QkJll-X2VJqbNr_nJ9AnmOITvOBhtN2TJOEJ2W/exec';
+    const CK = { cs:'CS CODE', vrl:'VRL CODE', src:'SOURCE', creator:'CREATOR', label:'ASSET LABEL',
+                 qa:'CS Code\n(Content Library Tracker by QA)', ing:'CS Code\n(Ingestion Masterfile)' };
+    let creatorsData = null, creatorsLoading = false;
+    const cq=$('cq'), cfilter=$('cfilter'), cstatus=$('cstatus'), cresults=$('cresults'), cclear=$('cclear');
+
+    function cnorm(v){ v=(v==null?'':String(v)).trim().toUpperCase(); return (v==='#N/A'||v==='N/A')?'':v; }
+    function creatorStatus(r){
+      const cs=cnorm(r[CK.cs]), qa=cnorm(r[CK.qa]), ing=cnorm(r[CK.ing]);
+      if(!cs) return 'missing';
+      const present=[cs,qa,ing].filter(Boolean);
+      return new Set(present).size>1 ? 'mismatch' : 'ok';
+    }
+    async function initCreators(){
+      if(creatorsData || creatorsLoading) return;
+      creatorsLoading=true;
+      cstatus.textContent='Loading creator list…';
+      cresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
+      try{
+        const res=await fetch(CREATORS_FEED);
+        const data=await res.json();
+        creatorsData=data.map(r=>{
+          r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.cs]||'')+' '+(r[CK.qa]||'')+' '+(r[CK.ing]||'')+' '+(r[CK.vrl]||'')).toLowerCase();
+          r._status=creatorStatus(r);
+          return r;
+        });
+        runCreators();
+      }catch(e){ cstatus.textContent='Could not load creator list: '+e.message; cresults.innerHTML=''; }
+      creatorsLoading=false;
+    }
+    const debouncedCreators = debounce(runCreators, 140);
+    cq.addEventListener('input', () => { cclear.style.display=cq.value?'block':'none'; debouncedCreators(); });
+    cfilter.addEventListener('change', runCreators);
+    cclear.addEventListener('click', () => { cq.value=''; cclear.style.display='none'; cq.focus(); runCreators(); });
+
+    function runCreators(){
+      if(!creatorsData) return;
+      const term=cq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
+      const onlyIssues=cfilter.value==='issues';
+      let rows=creatorsData;
+      if(onlyIssues) rows=rows.filter(r=>r._status!=='ok');
+      if(term) rows=rows.filter(r=>r._hay.indexOf(term)!==-1);
+      const shown=rows.slice(0,300);
+      const issues=creatorsData.filter(r=>r._status!=='ok').length;
+      cstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+creatorsData.length.toLocaleString()+
+        ' creators'+(rows.length>300?' · showing first 300':'')+' · <span style="color:var(--warn)">'+issues.toLocaleString()+' with issues</span>';
+      if(!shown.length){ cresults.innerHTML=emptyState(term||'that filter'); return; }
+      cresults.innerHTML=shown.map(creatorCard).join('');
+    }
+    function codeChip(label,val){
+      const v=(val==null?'':String(val)).trim();
+      const bad = v==='' || v==='#N/A' || v==='N/A';
+      return '<span class="codechip'+(bad?' bad':'')+'"><span class="cl">'+esc(label)+'</span><span class="cv" data-copy="'+esc(bad?'':v)+'">'+esc(v||'—')+'</span></span>';
+    }
+    function creatorCard(r){
+      const st=r._status, stLabel= st==='missing'?'Missing':st==='mismatch'?'Mismatch':'OK';
+      const badge='<span class="badge cr-'+st+'">'+stLabel+'</span>';
+      let codes=codeChip('CS Code', r[CK.cs])+codeChip('QA Tracker', r[CK.qa])+codeChip('Ingestion', r[CK.ing]);
+      if((r[CK.vrl]||'').trim()) codes+=codeChip('VRL', r[CK.vrl]);
+      const chips=(r[CK.label]?'<span class="chip">'+esc(r[CK.label])+'</span>':'')+(r[CK.src]?'<span class="chip">'+esc(r[CK.src])+'</span>':'');
+      return '<article class="card">'+ badge +
+        '<h3 class="title" title="'+esc(r[CK.creator]||'')+'">'+esc(r[CK.creator]||'—')+'</h3>'+
+        (chips?'<div class="chips">'+chips+'</div>':'')+
+        '<div class="codes">'+codes+'</div>'+
+      '</article>';
+    }
+    // copy on click within creators results
+    cresults.addEventListener('click', e => {
+      const el=e.target.closest('[data-copy]'); if(!el || !el.dataset.copy) return;
+      copyText(el.dataset.copy); el.style.color='var(--good)'; setTimeout(()=>el.style.color='', 800);
+    });
   </script>
 </body>
 </html>
