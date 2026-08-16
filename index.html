@@ -105,6 +105,9 @@
     .src-badge.active{background:#2f9e44}
     .src-badge.terminated{background:#d63a3a}
     .src-badge.unknown{background:var(--line); color:var(--muted)}
+    .title.clickcopy{cursor:pointer}
+    .title.clickcopy:hover{color:var(--accent-2)}
+    .title.clickcopy:active{opacity:.7}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
     .btn:hover{border-color:var(--line-hi)}
@@ -550,8 +553,8 @@
       codes+=codeChip('QA Tracker', r[CK.qa])+codeChip('Ingestion', r[CK.ing]);
       const creatorChip = r[CK.creator] ? '<span class="chip">'+esc(r[CK.creator])+'</span>' : '';
       return '<article class="card">'+
+        '<h3 class="title clickcopy" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</h3>'+
         '<div class="card-top">'+srcBadge+mm+'</div>'+
-        '<h3 class="title" title="'+esc(label)+'">'+esc(label)+'</h3>'+
         (creatorChip?'<div class="chips">'+creatorChip+'</div>':'')+
         '<div class="codes">'+codes+'</div>'+
       '</article>';
