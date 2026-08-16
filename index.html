@@ -104,6 +104,7 @@
     .src-badge{font:700 11px 'Plus Jakarta Sans',sans-serif; text-transform:uppercase; letter-spacing:.04em; padding:4px 11px; border-radius:999px; color:#fff}
     .src-badge.active{background:#2f9e44}
     .src-badge.terminated{background:#d63a3a}
+    .src-badge.unknown{background:var(--line); color:var(--muted)}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
     .btn:hover{border-color:var(--line-hi)}
@@ -466,7 +467,9 @@
         r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.src]||'')).toLowerCase();       // name/label/source (raw)
         r._ncode=[r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(ncode).join(' ');                   // codes (format-agnostic)
         r._status=creatorStatus(r);
-        r._term=String(r[CK.src]||'').trim().toUpperCase().indexOf('TERMINAT')!==-1;
+        const src=String(r[CK.src]||'').trim(), su=src.toUpperCase();
+        r._term=su.indexOf('TERMINAT')!==-1;
+        r._srcState = r._term ? 'terminated' : (src===''||su==='#N/A'||su==='N/A' ? 'unknown' : 'active');
         return r;
       });
       runCreators();
@@ -517,7 +520,7 @@
     }
     function creatorCard(r){
       const srcVal=(r[CK.src]||'').trim();
-      const srcBadge='<span class="src-badge '+(r._term?'terminated':'active')+'">'+esc(srcVal||'—')+'</span>';
+      const srcBadge='<span class="src-badge '+r._srcState+'">'+esc(srcVal||'—')+'</span>';
       const st=r._status, stLabel= st==='missing'?'Missing CS':st==='mismatch'?'Mismatch':'';
       const mm = st!=='ok' ? '<span class="badge cr-'+st+'">'+stLabel+'</span>' : '';
       const label = r[CK.label] || r[CK.creator] || '—';
