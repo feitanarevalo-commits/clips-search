@@ -446,8 +446,17 @@
       const present=[cs,qa,ing].filter(Boolean);
       return new Set(present).size>1 ? 'mismatch' : 'ok';
     }
+    // accepts either the old format (array of objects) or the new slim {header, rows} format
+    function normalizeFeed(data){
+      if(Array.isArray(data)) return data;
+      if(data && Array.isArray(data.header) && Array.isArray(data.rows)){
+        const h=data.header;
+        return data.rows.map(r=>{ const o={}; for(let i=0;i<h.length;i++) o[h[i]]=r[i]; return o; });
+      }
+      return [];
+    }
     function ingestCreators(data){
-      creatorsData=data.map(r=>{
+      creatorsData=normalizeFeed(data).map(r=>{
         r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.cs]||'')+' '+(r[CK.qa]||'')+' '+(r[CK.ing]||'')+' '+(r[CK.vrl]||'')).toLowerCase();
         r._status=creatorStatus(r);
         return r;
@@ -461,10 +470,10 @@
       if(!force){                                        // try this-session cache (instant on reload)
         try{ const c=sessionStorage.getItem('creators_cache'); if(c){ ingestCreators(JSON.parse(c)); creatorsLoading=false; return; } }catch(e){}
       }
-      cstatus.textContent='Loading creator list from the sheet… (first load takes ~15s)';
+      cstatus.textContent='Loading creator list from the sheet…';
       cresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
       try{
-        const res=await fetch(CREATORS_FEED, { cache:'no-store' });
+        const res=await fetch(CREATORS_FEED + (force?'?fresh=1':''), { cache:'no-store' });
         const data=await res.json();
         try{ sessionStorage.setItem('creators_cache', JSON.stringify(data)); }catch(e){}
         ingestCreators(data);
