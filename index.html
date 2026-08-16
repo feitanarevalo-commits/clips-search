@@ -49,13 +49,13 @@
     .search{position:sticky; top:0; z-index:5; padding:12px 0 12px; background:linear-gradient(180deg,var(--bg) 72%,transparent)}
     .searchrow{display:flex; gap:10px; flex-wrap:wrap}
     .field{position:relative; flex:1; min-width:240px}
-    .field svg{position:absolute; left:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; stroke:var(--faint); pointer-events:none}
-    #q{width:100%; font:500 15px 'Plus Jakarta Sans',sans-serif; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px 40px 13px 42px; outline:none; transition:border-color .15s,box-shadow .15s}
-    #q:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
-    #q::placeholder{color:var(--faint)}
-    .clear{position:absolute; right:8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border:0; border-radius:8px; cursor:pointer; display:none; background:transparent; color:var(--muted); font-size:17px}
+    .field svg{position:absolute; left:17px; top:50%; transform:translateY(-50%); width:20px; height:20px; stroke:var(--faint); pointer-events:none}
+    #q, #cq{width:100%; height:56px; font:500 16px 'Plus Jakarta Sans',sans-serif; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:14px; padding:0 48px 0 50px; outline:none; transition:border-color .15s,box-shadow .15s}
+    #q:focus, #cq:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+    #q::placeholder, #cq::placeholder{color:var(--faint)}
+    .clear{position:absolute; right:12px; top:50%; transform:translateY(-50%); width:30px; height:30px; border:0; border-radius:8px; cursor:pointer; display:none; background:transparent; color:var(--muted); font-size:18px}
     .clear:hover{background:var(--line); color:var(--text)}
-    select{font:500 14px 'Plus Jakarta Sans',sans-serif; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:0 34px 0 14px; height:48px; cursor:pointer; outline:none; appearance:none;
+    select{font:500 15px 'Plus Jakarta Sans',sans-serif; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:14px; padding:0 36px 0 16px; height:56px; cursor:pointer; outline:none; appearance:none;
       background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239c99a8' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat:no-repeat; background-position:right 12px center}
     select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
     .statusrow{display:flex; align-items:center; gap:8px; min-height:22px; color:var(--muted); font-size:13px; margin:4px 2px 16px}
@@ -197,7 +197,7 @@
             <button class="clear" id="cclear" title="Clear">✕</button>
           </div>
           <select id="cfilter"><option value="">All rows</option><option value="issues">Only mismatches / missing</option></select>
-          <button class="hbtn icon" id="crefresh" title="Reload latest from the sheet" style="height:48px">
+          <button class="hbtn icon" id="crefresh" title="Reload latest from the sheet" style="height:56px; width:48px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.6 3"/><path d="M20 4v6h-6"/></svg>
           </button>
         </div>
