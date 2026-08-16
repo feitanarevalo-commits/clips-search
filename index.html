@@ -192,6 +192,9 @@
             <button class="clear" id="cclear" title="Clear">✕</button>
           </div>
           <select id="cfilter"><option value="">All rows</option><option value="issues">Only mismatches / missing</option></select>
+          <button class="hbtn icon" id="crefresh" title="Reload latest from the sheet" style="height:48px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.6 3"/><path d="M20 4v6h-6"/></svg>
+          </button>
         </div>
         <div class="statusrow" id="cstatus">Loading creator list…</div>
       </div>
@@ -443,23 +446,33 @@
       const present=[cs,qa,ing].filter(Boolean);
       return new Set(present).size>1 ? 'mismatch' : 'ok';
     }
-    async function initCreators(){
-      if(creatorsData || creatorsLoading) return;
+    function ingestCreators(data){
+      creatorsData=data.map(r=>{
+        r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.cs]||'')+' '+(r[CK.qa]||'')+' '+(r[CK.ing]||'')+' '+(r[CK.vrl]||'')).toLowerCase();
+        r._status=creatorStatus(r);
+        return r;
+      });
+      runCreators();
+    }
+    async function initCreators(force){
+      if(creatorsLoading) return;
+      if(!force && creatorsData) return;                 // already in memory
       creatorsLoading=true;
-      cstatus.textContent='Loading creator list…';
+      if(!force){                                        // try this-session cache (instant on reload)
+        try{ const c=sessionStorage.getItem('creators_cache'); if(c){ ingestCreators(JSON.parse(c)); creatorsLoading=false; return; } }catch(e){}
+      }
+      cstatus.textContent='Loading creator list from the sheet… (first load takes ~15s)';
       cresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
       try{
-        const res=await fetch(CREATORS_FEED);
+        const res=await fetch(CREATORS_FEED, { cache:'no-store' });
         const data=await res.json();
-        creatorsData=data.map(r=>{
-          r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.cs]||'')+' '+(r[CK.qa]||'')+' '+(r[CK.ing]||'')+' '+(r[CK.vrl]||'')).toLowerCase();
-          r._status=creatorStatus(r);
-          return r;
-        });
-        runCreators();
+        try{ sessionStorage.setItem('creators_cache', JSON.stringify(data)); }catch(e){}
+        ingestCreators(data);
+        showToast('Creator list updated');
       }catch(e){ cstatus.textContent='Could not load creator list: '+e.message; cresults.innerHTML=''; }
       creatorsLoading=false;
     }
+    $('crefresh').addEventListener('click', () => { try{ sessionStorage.removeItem('creators_cache'); }catch(e){} initCreators(true); });
     const debouncedCreators = debounce(runCreators, 140);
     cq.addEventListener('input', () => { cclear.style.display=cq.value?'block':'none'; debouncedCreators(); });
     cfilter.addEventListener('change', runCreators);
