@@ -50,9 +50,9 @@
     .searchrow{display:flex; gap:10px; flex-wrap:wrap}
     .field{position:relative; flex:1; min-width:240px}
     .field svg{position:absolute; left:17px; top:50%; transform:translateY(-50%); width:20px; height:20px; stroke:var(--faint); pointer-events:none}
-    #q, #cq{width:100%; height:56px; font:500 16px 'Plus Jakarta Sans',sans-serif; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:14px; padding:0 48px 0 50px; outline:none; transition:border-color .15s,box-shadow .15s}
-    #q:focus, #cq:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
-    #q::placeholder, #cq::placeholder{color:var(--faint)}
+    .field input{width:100%; height:56px; font:500 16px 'Plus Jakarta Sans',sans-serif; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:14px; padding:0 48px 0 50px; outline:none; transition:border-color .15s,box-shadow .15s}
+    .field input:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+    .field input::placeholder{color:var(--faint)}
     .clear{position:absolute; right:12px; top:50%; transform:translateY(-50%); width:30px; height:30px; border:0; border-radius:8px; cursor:pointer; display:none; background:transparent; color:var(--muted); font-size:18px}
     .clear:hover{background:var(--line); color:var(--text)}
     select{font:500 15px 'Plus Jakarta Sans',sans-serif; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:14px; padding:0 36px 0 16px; height:56px; cursor:pointer; outline:none; appearance:none;
