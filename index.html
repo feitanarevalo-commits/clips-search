@@ -100,6 +100,10 @@
     .badge.cr-ok{color:#2fa043; background:rgba(63,185,80,.15); border-color:rgba(63,185,80,.42)}
     .badge.cr-mismatch{color:#c98a12; background:rgba(210,153,34,.15); border-color:rgba(210,153,34,.42)}
     .badge.cr-missing{color:var(--bad); background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.42)}
+    .card-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    .src-badge{font:700 11px 'Plus Jakarta Sans',sans-serif; text-transform:uppercase; letter-spacing:.04em; padding:4px 11px; border-radius:999px; color:#fff}
+    .src-badge.active{background:#2f9e44}
+    .src-badge.terminated{background:#d63a3a}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
     .btn:hover{border-color:var(--line-hi)}
@@ -188,7 +192,7 @@
         <div class="searchrow">
           <div class="field">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-            <input id="cq" placeholder="Search creator, asset label, or CS code…" autocomplete="off">
+            <input id="cq" placeholder="Search CS code or VRL code — any format (e.g. CS00467 (5), cs00467_5)…" autocomplete="off">
             <button class="clear" id="cclear" title="Clear">✕</button>
           </div>
           <select id="cfilter"><option value="">All rows</option><option value="issues">Only mismatches / missing</option></select>
@@ -455,10 +459,14 @@
       }
       return [];
     }
+    // normalize a code: lowercase, strip everything non-alphanumeric → format-agnostic
+    function ncode(s){ return (s==null?'':String(s)).toLowerCase().replace(/[^a-z0-9]/g,''); }
     function ingestCreators(data){
       creatorsData=normalizeFeed(data).map(r=>{
-        r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.cs]||'')+' '+(r[CK.qa]||'')+' '+(r[CK.ing]||'')+' '+(r[CK.vrl]||'')).toLowerCase();
+        r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.src]||'')).toLowerCase();       // name/label/source (raw)
+        r._ncode=[r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(ncode).join(' ');                   // codes (format-agnostic)
         r._status=creatorStatus(r);
+        r._term=String(r[CK.src]||'').trim().toUpperCase().indexOf('TERMINAT')!==-1;
         return r;
       });
       runCreators();
@@ -489,16 +497,17 @@
 
     function runCreators(){
       if(!creatorsData) return;
-      const term=cq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
+      const raw=cq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
+      const qn=ncode(raw);                          // format-agnostic code query
       const onlyIssues=cfilter.value==='issues';
       let rows=creatorsData;
       if(onlyIssues) rows=rows.filter(r=>r._status!=='ok');
-      if(term) rows=rows.filter(r=>r._hay.indexOf(term)!==-1);
+      if(raw) rows=rows.filter(r=> (qn && r._ncode.indexOf(qn)!==-1) || r._hay.indexOf(raw)!==-1);
       const shown=rows.slice(0,300);
       const issues=creatorsData.filter(r=>r._status!=='ok').length;
       cstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+creatorsData.length.toLocaleString()+
         ' creators'+(rows.length>300?' · showing first 300':'')+' · <span style="color:var(--warn)">'+issues.toLocaleString()+' with issues</span>';
-      if(!shown.length){ cresults.innerHTML=emptyState(term||'that filter'); return; }
+      if(!shown.length){ cresults.innerHTML=emptyState(raw||'that filter'); return; }
       cresults.innerHTML=shown.map(creatorCard).join('');
     }
     function codeChip(label,val){
@@ -507,14 +516,19 @@
       return '<span class="codechip'+(bad?' bad':'')+'"><span class="cl">'+esc(label)+'</span><span class="cv" data-copy="'+esc(bad?'':v)+'">'+esc(v||'—')+'</span></span>';
     }
     function creatorCard(r){
-      const st=r._status, stLabel= st==='missing'?'Missing':st==='mismatch'?'Mismatch':'OK';
-      const badge='<span class="badge cr-'+st+'">'+stLabel+'</span>';
-      let codes=codeChip('CS Code', r[CK.cs])+codeChip('QA Tracker', r[CK.qa])+codeChip('Ingestion', r[CK.ing]);
-      if((r[CK.vrl]||'').trim()) codes+=codeChip('VRL', r[CK.vrl]);
-      const chips=(r[CK.label]?'<span class="chip">'+esc(r[CK.label])+'</span>':'')+(r[CK.src]?'<span class="chip">'+esc(r[CK.src])+'</span>':'');
-      return '<article class="card">'+ badge +
-        '<h3 class="title" title="'+esc(r[CK.creator]||'')+'">'+esc(r[CK.creator]||'—')+'</h3>'+
-        (chips?'<div class="chips">'+chips+'</div>':'')+
+      const srcVal=(r[CK.src]||'').trim();
+      const srcBadge='<span class="src-badge '+(r._term?'terminated':'active')+'">'+esc(srcVal||'—')+'</span>';
+      const st=r._status, stLabel= st==='missing'?'Missing CS':st==='mismatch'?'Mismatch':'';
+      const mm = st!=='ok' ? '<span class="badge cr-'+st+'">'+stLabel+'</span>' : '';
+      const label = r[CK.label] || r[CK.creator] || '—';
+      let codes=codeChip('CS Code', r[CK.cs]);
+      if((r[CK.vrl]||'').trim()) codes+=codeChip('VRL Code', r[CK.vrl]);
+      codes+=codeChip('QA Tracker', r[CK.qa])+codeChip('Ingestion', r[CK.ing]);
+      const creatorChip = r[CK.creator] ? '<span class="chip">'+esc(r[CK.creator])+'</span>' : '';
+      return '<article class="card">'+
+        '<div class="card-top">'+srcBadge+mm+'</div>'+
+        '<h3 class="title" title="'+esc(label)+'">'+esc(label)+'</h3>'+
+        (creatorChip?'<div class="chips">'+creatorChip+'</div>':'')+
         '<div class="codes">'+codes+'</div>'+
       '</article>';
     }
