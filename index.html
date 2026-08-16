@@ -171,6 +171,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M10 9l5 3-5 3z"/></svg>Clips</button>
       <button class="tab" data-tab="creators">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Creators</button>
+      <button class="tab" data-tab="distri">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Distri Partner</button>
     </div>
 
     <div id="tab-clips">
@@ -204,6 +206,23 @@
         <div class="statusrow" id="cstatus">Loading creator list…</div>
       </div>
       <div class="grid" id="cresults"></div>
+    </div>
+
+    <div id="tab-distri" hidden>
+      <div class="search">
+        <div class="searchrow">
+          <div class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <input id="dq" placeholder="Search VVV ID, channel, or partner — any format…" autocomplete="off">
+            <button class="clear" id="dclear" title="Clear">✕</button>
+          </div>
+          <button class="hbtn icon" id="drefresh" title="Reload latest from the sheet" style="height:56px; width:48px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.6 3"/><path d="M20 4v6h-6"/></svg>
+          </button>
+        </div>
+        <div class="statusrow" id="dstatus">Loading partner channels…</div>
+      </div>
+      <div class="grid" id="dresults"></div>
     </div>
   </div>
 
@@ -432,8 +451,10 @@
       document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
       $('tab-clips').hidden = name!=='clips';
       $('tab-creators').hidden = name!=='creators';
+      $('tab-distri').hidden = name!=='distri';
       $('importBtn').style.display = name==='clips' ? '' : 'none';   // Import only applies to clips
       if(name==='creators'){ initCreators(); setTimeout(()=>$('cq').focus(), 30); }
+      else if(name==='distri'){ initDistri(); setTimeout(()=>$('dq').focus(), 30); }
       else setTimeout(()=>$('q').focus(), 30);
     }
 
@@ -540,6 +561,76 @@
       const el=e.target.closest('[data-copy]'); if(!el || !el.dataset.copy) return;
       copyText(el.dataset.copy); el.style.color='var(--good)'; setTimeout(()=>el.style.color='', 800);
     });
+
+    // ===== Distri Partner tab (live from Google Sheet, all VVV tabs merged) =====
+    const DISTRI_FEED = 'https://script.google.com/macros/s/AKfycbwtlQWdzIOyhO-TeGuHIQDavY4FIJ9twXRv7TNf1swn5jK1GC7NWMznWo_XWvJ6K1NT9Q/exec';
+    const DK = { id:'VVV ID', name:'VVV NAME', channel:'CHANNEL NAME', url:'CHANNEL URL', status:'STATUS PEX', team:'MC TEAM', tab:'TAB' };
+    let distriData=null, distriLoading=false;
+    const dq=$('dq'), dstatus=$('dstatus'), dresults=$('dresults'), dclear=$('dclear');
+
+    function ingestDistri(data){
+      distriData=normalizeFeed(data).map(r=>{
+        r._hay=((r[DK.id]||'')+' '+(r[DK.name]||'')+' '+(r[DK.channel]||'')+' '+(r[DK.status]||'')+' '+(r[DK.team]||'')+' '+(r[DK.tab]||'')).toLowerCase();
+        r._ncode=ncode(r[DK.id]);
+        return r;
+      });
+      runDistri();
+    }
+    async function initDistri(force){
+      if(distriLoading) return;
+      if(!force && distriData) return;
+      distriLoading=true;
+      if(!force){ try{ const c=sessionStorage.getItem('distri_cache'); if(c){ ingestDistri(JSON.parse(c)); distriLoading=false; return; } }catch(e){} }
+      dstatus.textContent='Loading partner channels from the sheet…';
+      dresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
+      try{
+        const res=await fetch(DISTRI_FEED+(force?'?fresh=1':''), { cache:'no-store' });
+        const data=await res.json();
+        try{ sessionStorage.setItem('distri_cache', JSON.stringify(data)); }catch(e){}
+        ingestDistri(data); showToast('Partner channels updated');
+      }catch(e){ dstatus.textContent='Could not load partner channels: '+e.message; dresults.innerHTML=''; }
+      distriLoading=false;
+    }
+    const debouncedDistri=debounce(runDistri,140);
+    dq.addEventListener('input', () => { dclear.style.display=dq.value?'block':'none'; debouncedDistri(); });
+    dclear.addEventListener('click', () => { dq.value=''; dclear.style.display='none'; dq.focus(); runDistri(); });
+    $('drefresh').addEventListener('click', () => { try{ sessionStorage.removeItem('distri_cache'); }catch(e){} initDistri(true); });
+
+    function runDistri(){
+      if(!distriData) return;
+      const raw=dq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
+      const qn=ncode(raw);
+      let rows=distriData;
+      if(raw) rows=rows.filter(r=> (qn && r._ncode.indexOf(qn)!==-1) || r._hay.indexOf(raw)!==-1);
+      const shown=rows.slice(0,300);
+      dstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+distriData.length.toLocaleString()+' channels'+(rows.length>300?' · showing first 300':'');
+      if(!shown.length){ dresults.innerHTML=emptyState(raw||'that search'); return; }
+      dresults.innerHTML=shown.map(distriCard).join('');
+    }
+    function distriCard(r){
+      const title=(r[DK.channel]||'').trim() || (r[DK.id]||'').trim() || '—';
+      const url=(r[DK.url]||'').trim();
+      let chips='';
+      if((r[DK.id]||'').trim())     chips+='<span class="chip code">'+esc(r[DK.id])+'</span>';
+      if((r[DK.name]||'').trim())   chips+='<span class="chip">'+esc(r[DK.name])+'</span>';
+      if((r[DK.status]||'').trim()) chips+='<span class="chip">'+esc(r[DK.status])+'</span>';
+      if((r[DK.team]||'').trim())   chips+='<span class="chip">MC: '+esc(r[DK.team])+'</span>';
+      if((r[DK.tab]||'').trim())    chips+='<span class="chip">'+esc(r[DK.tab])+'</span>';
+      let acts='';
+      if(url){ acts+='<a class="btn primary" href="'+esc(url)+'" target="_blank" rel="noopener">'+extIcon()+'View channel</a>';
+               acts+='<button class="btn" data-copy="'+esc(url)+'" title="Copy channel URL">'+copyIcon()+'Copy link</button>'; }
+      else acts='<span class="chip">no URL</span>';
+      return '<article class="card">'+
+        '<h3 class="title" title="'+esc(title)+'">'+esc(title)+'</h3>'+
+        (chips?'<div class="chips">'+chips+'</div>':'')+
+        '<div class="actions">'+acts+'</div>'+
+      '</article>';
+    }
+    dresults.addEventListener('click', e => {
+      const el=e.target.closest('[data-copy]'); if(!el || !el.dataset.copy) return;
+      copyText(el.dataset.copy); el.classList.add('copied'); setTimeout(()=>el.classList.remove('copied'), 900);
+    });
+    function extIcon(){ return '<svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'; }
   </script>
 </body>
 </html>
