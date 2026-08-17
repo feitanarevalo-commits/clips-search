@@ -109,13 +109,24 @@
     .title.clickcopy{cursor:pointer}
     .title.clickcopy:hover{color:var(--accent-2)}
     .title.clickcopy:active{opacity:.7}
-    /* horizontal (row) result cards — used for the Creators list */
-    #cresults{display:flex; flex-direction:column; gap:10px}
-    .card.rowcard{flex-direction:row; align-items:center; flex-wrap:wrap; gap:8px 16px; padding:12px 18px}
-    .card.rowcard:hover{transform:none}
-    .card.rowcard .title{min-height:0; margin:0; font-size:15px; display:block; -webkit-line-clamp:unset; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px; flex:0 1 auto}
-    .card.rowcard .card-top, .card.rowcard .chips, .card.rowcard .codes{margin:0}
-    .card.rowcard .codes{margin-left:auto}
+    /* table-style results (Creator Search + Viral Partner): header row + aligned columns */
+    #cresults, #dresults{display:block; overflow-x:auto; padding-bottom:4px}
+    .thead{display:grid; align-items:end; gap:10px 14px; padding:2px 16px 8px; font:700 10.5px 'Plus Jakarta Sans',sans-serif; text-transform:uppercase; letter-spacing:.05em; color:var(--faint)}
+    .trow{display:grid; align-items:center; gap:10px 14px; padding:12px 16px; background:var(--card); border:1px solid var(--line); border-radius:10px; margin-bottom:8px; transition:border-color .12s}
+    .trow:hover{border-color:var(--line-hi)}
+    .trow.miss-missing{border-left:3px solid var(--bad)}
+    .trow.miss-mismatch{border-left:3px solid var(--warn)}
+    .tcell{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--muted)}
+    .tcell.strong{font-weight:600; color:var(--text)}
+    .tcell.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace; font-size:12px; color:var(--text)}
+    .tcell.mono.bad{color:var(--bad)}
+    .tcell.copyable{cursor:pointer}
+    .tcell.copyable:hover{color:var(--accent-2)}
+    .tcell .cvlink{color:var(--accent-2); text-decoration:none}
+    .tcell .cvlink:hover{text-decoration:underline}
+    .trow .src-badge{display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
+    .creators-cols{grid-template-columns:minmax(150px,2fr) minmax(120px,1.4fr) minmax(110px,1.3fr) minmax(88px,1fr) minmax(88px,1fr) minmax(88px,1fr) minmax(120px,1.3fr); min-width:830px}
+    .distri-cols{grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(120px,1.4fr) minmax(70px,.7fr); min-width:930px}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
     .btn:hover{border-color:var(--line-hi)}
@@ -546,29 +557,27 @@
       cstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+creatorsData.length.toLocaleString()+
         ' creators'+(rows.length>300?' · showing first 300':'')+' · <span style="color:var(--warn)">'+issues.toLocaleString()+' with issues</span>';
       if(!shown.length){ cresults.innerHTML=emptyState(raw||'that filter'); return; }
-      cresults.innerHTML=shown.map(creatorCard).join('');
+      cresults.innerHTML=creatorsHeader()+shown.map(creatorRow).join('');
     }
-    function codeChip(label,val){
-      const v=(val==null?'':String(val)).trim();
+    function codeTcell(v){
+      v=(v==null?'':String(v)).trim();
       const bad = v==='' || v==='#N/A' || v==='N/A';
-      return '<span class="codechip'+(bad?' bad':'')+'"><span class="cl">'+esc(label)+'</span><span class="cv" data-copy="'+esc(bad?'':v)+'">'+esc(v||'—')+'</span></span>';
+      return '<div class="tcell mono'+(bad?' bad':'')+(v&&!bad?' copyable':'')+'"'+(v&&!bad?' data-copy="'+esc(v)+'"':'')+' title="'+esc(v)+'">'+esc(v||'—')+'</div>';
     }
-    function creatorCard(r){
+    function creatorsHeader(){
+      return '<div class="thead creators-cols"><div>Asset Label</div><div>Source</div><div>Creator</div><div>CS Code</div><div>QA Tracker</div><div>Ingestion</div><div>VRL Code</div></div>';
+    }
+    function creatorRow(r){
+      const label=r[CK.label]||r[CK.creator]||'—';
       const srcVal=(r[CK.src]||'').trim();
-      const srcBadge='<span class="src-badge '+r._srcState+'">'+esc(srcVal||'—')+'</span>';
-      const st=r._status, stLabel= st==='missing'?'Missing CS':st==='mismatch'?'Mismatch':'';
-      const mm = st!=='ok' ? '<span class="badge cr-'+st+'">'+stLabel+'</span>' : '';
-      const label = r[CK.label] || r[CK.creator] || '—';
-      let codes=codeChip('CS Code', r[CK.cs]);
-      if((r[CK.vrl]||'').trim()) codes+=codeChip('VRL Code', r[CK.vrl]);
-      codes+=codeChip('QA Tracker', r[CK.qa])+codeChip('Ingestion', r[CK.ing]);
-      const creatorChip = r[CK.creator] ? '<span class="chip">'+esc(r[CK.creator])+'</span>' : '';
-      return '<article class="card rowcard">'+
-        '<h3 class="title clickcopy" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</h3>'+
-        '<div class="card-top">'+srcBadge+mm+'</div>'+
-        (creatorChip?'<div class="chips">'+creatorChip+'</div>':'')+
-        '<div class="codes">'+codes+'</div>'+
-      '</article>';
+      const srcBadge='<span class="src-badge '+r._srcState+'" title="'+esc(srcVal)+'">'+esc(srcVal||'—')+'</span>';
+      const miss = r._status!=='ok' ? ' miss-'+r._status : '';
+      return '<div class="trow creators-cols'+miss+'">'+
+        '<div class="tcell strong copyable" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</div>'+
+        '<div class="tcell">'+srcBadge+'</div>'+
+        '<div class="tcell" title="'+esc(r[CK.creator]||'')+'">'+esc(r[CK.creator]||'—')+'</div>'+
+        codeTcell(r[CK.cs])+codeTcell(r[CK.qa])+codeTcell(r[CK.ing])+codeTcell(r[CK.vrl])+
+      '</div>';
     }
     // copy on click within creators results
     cresults.addEventListener('click', e => {
@@ -621,32 +630,29 @@
       const shown=rows.slice(0,300);
       dstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+distriData.length.toLocaleString()+' channels'+(rows.length>300?' · showing first 300':'');
       if(!shown.length){ dresults.innerHTML=emptyState(raw||'that search'); return; }
-      dresults.innerHTML=shown.map(distriCard).join('');
+      dresults.innerHTML=distriHeader()+shown.map(distriRow).join('');
     }
-    function distriCard(r){
-      const title=(r[DK.channel]||'').trim() || (r[DK.id]||'').trim() || '—';
+    function distriHeader(){
+      return '<div class="thead distri-cols"><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>Status</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Channel URL</div></div>';
+    }
+    function tc(v, cls){ v=(v==null?'':String(v)).trim(); return '<div class="tcell'+(cls?' '+cls:'')+'" title="'+esc(v)+'">'+esc(v||'—')+'</div>'; }
+    function distriRow(r){
       const url=(r[DK.url]||'').trim();
-      let chips='';
-      if((r[DK.id]||'').trim())     chips+='<span class="chip code">'+esc(r[DK.id])+'</span>';
-      if((r[DK.name]||'').trim())   chips+='<span class="chip">'+esc(r[DK.name])+'</span>';
-      if((r[DK.status]||'').trim()) chips+='<span class="chip">'+esc(r[DK.status])+'</span>';
-      if((r[DK.team]||'').trim())   chips+='<span class="chip">MC: '+esc(r[DK.team])+'</span>';
-      if((r['DATE']||'').toString().trim())  chips+='<span class="chip">'+esc(r['DATE'])+'</span>';
-      if((r['NOTES']||'').toString().trim()) chips+='<span class="chip">📝 '+esc(r['NOTES'])+'</span>';
-      if((r[DK.tab]||'').trim())    chips+='<span class="chip">'+esc(r[DK.tab])+'</span>';
-      let acts='';
-      if(url){ acts+='<a class="btn primary" href="'+esc(url)+'" target="_blank" rel="noopener">'+extIcon()+'View channel</a>';
-               acts+='<button class="btn" data-copy="'+esc(url)+'" title="Copy channel URL">'+copyIcon()+'Copy link</button>'; }
-      else acts='<span class="chip">no URL</span>';
-      return '<article class="card">'+
-        '<h3 class="title" title="'+esc(title)+'">'+esc(title)+'</h3>'+
-        (chips?'<div class="chips">'+chips+'</div>':'')+
-        '<div class="actions">'+acts+'</div>'+
-      '</article>';
+      const idv=(r[DK.id]||'').trim();
+      return '<div class="trow distri-cols">'+
+        '<div class="tcell mono strong copyable" data-copy="'+esc(idv)+'" title="'+esc(idv)+' — click to copy">'+esc(idv||'—')+'</div>'+
+        tc(r[DK.name])+
+        tc(r[DK.channel],'strong')+
+        tc(r[DK.status])+
+        tc(r[DK.team])+
+        tc(r['DATE'])+
+        tc(r['NOTES'])+
+        '<div class="tcell">'+(url?'<a class="cvlink" href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(url)+'">View ↗</a>':'—')+'</div>'+
+      '</div>';
     }
     dresults.addEventListener('click', e => {
       const el=e.target.closest('[data-copy]'); if(!el || !el.dataset.copy) return;
-      copyText(el.dataset.copy); el.classList.add('copied'); setTimeout(()=>el.classList.remove('copied'), 900);
+      copyText(el.dataset.copy); el.style.color='var(--good)'; setTimeout(()=>el.style.color='', 800);
     });
     function extIcon(){ return '<svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'; }
   </script>
