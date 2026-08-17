@@ -178,11 +178,11 @@
 
     <div class="tabs">
       <button class="tab active" data-tab="clips">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M10 9l5 3-5 3z"/></svg>Clips</button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M10 9l5 3-5 3z"/></svg>Clips Search</button>
       <button class="tab" data-tab="creators">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Creators</button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Creator Search</button>
       <button class="tab" data-tab="distri">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Distri Partner</button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Virals Partner Channels</button>
     </div>
 
     <div id="tab-clips">
@@ -496,7 +496,7 @@
     function ingestCreators(data){
       creatorsData=normalizeFeed(data).map(r=>{
         r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.src]||'')).toLowerCase();       // name/label/source (raw)
-        r._ncode=[r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(ncode).join(' ');                   // codes (format-agnostic)
+        r._codes=[r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(ncode).filter(Boolean);             // codes (format-agnostic, per-field)
         r._status=creatorStatus(r);
         const src=String(r[CK.src]||'').trim(), su=src.toUpperCase();
         r._term=su.indexOf('TERMINAT')!==-1;
@@ -536,7 +536,10 @@
       const onlyIssues=cfilter.value==='issues';
       let rows=creatorsData;
       if(onlyIssues) rows=rows.filter(r=>r._status!=='ok');
-      if(raw) rows=rows.filter(r=> (qn && r._ncode.indexOf(qn)!==-1) || r._hay.indexOf(raw)!==-1);
+      // code match: stored contains query (partial) OR query starts with a stored code
+      // (so extra suffixes like "(86)" / "_5" are disregarded), plus raw name/label/source search
+      if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 ||
+        (qn.length>=2 && r._codes.some(code => code.indexOf(qn)!==-1 || (code.length>=3 && qn.indexOf(code)===0))));
       const shown=rows.slice(0,300);
       const issues=creatorsData.filter(r=>r._status!=='ok').length;
       cstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+creatorsData.length.toLocaleString()+
