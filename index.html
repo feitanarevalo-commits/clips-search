@@ -108,6 +108,13 @@
     .title.clickcopy{cursor:pointer}
     .title.clickcopy:hover{color:var(--accent-2)}
     .title.clickcopy:active{opacity:.7}
+    /* horizontal (row) result cards — used for the Creators list */
+    #cresults{display:flex; flex-direction:column; gap:10px}
+    .card.rowcard{flex-direction:row; align-items:center; flex-wrap:wrap; gap:8px 16px; padding:12px 18px}
+    .card.rowcard:hover{transform:none}
+    .card.rowcard .title{min-height:0; margin:0; font-size:15px; display:block; -webkit-line-clamp:unset; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px; flex:0 1 auto}
+    .card.rowcard .card-top, .card.rowcard .chips, .card.rowcard .codes{margin:0}
+    .card.rowcard .codes{margin-left:auto}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
     .btn:hover{border-color:var(--line-hi)}
@@ -552,7 +559,7 @@
       if((r[CK.vrl]||'').trim()) codes+=codeChip('VRL Code', r[CK.vrl]);
       codes+=codeChip('QA Tracker', r[CK.qa])+codeChip('Ingestion', r[CK.ing]);
       const creatorChip = r[CK.creator] ? '<span class="chip">'+esc(r[CK.creator])+'</span>' : '';
-      return '<article class="card">'+
+      return '<article class="card rowcard">'+
         '<h3 class="title clickcopy" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</h3>'+
         '<div class="card-top">'+srcBadge+mm+'</div>'+
         (creatorChip?'<div class="chips">'+creatorChip+'</div>':'')+
