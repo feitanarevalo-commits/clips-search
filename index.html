@@ -532,7 +532,7 @@
     function runCreators(){
       if(!creatorsData) return;
       const raw=cq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
-      const qn=ncode(raw);                          // format-agnostic code query
+      const qn=ncode(raw.replace(/\([^)]*\)/g,' ')); // drop (..) suffixes, then format-agnostic code query
       const onlyIssues=cfilter.value==='issues';
       let rows=creatorsData;
       if(onlyIssues) rows=rows.filter(r=>r._status!=='ok');
@@ -613,7 +613,7 @@
     function runDistri(){
       if(!distriData) return;
       const raw=dq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
-      const qn=ncode(raw);
+      const qn=ncode(raw.replace(/\([^)]*\)/g,' ')); // drop (..) suffixes
       let rows=distriData;
       if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 ||
         (qn.length>=2 && r._codes.some(code => code.indexOf(qn)!==-1 || (code.length>=3 && qn.indexOf(code)===0))));
