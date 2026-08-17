@@ -583,8 +583,9 @@
 
     function ingestDistri(data){
       distriData=normalizeFeed(data).map(r=>{
-        r._hay=((r[DK.id]||'')+' '+(r[DK.name]||'')+' '+(r[DK.channel]||'')+' '+(r[DK.status]||'')+' '+(r[DK.team]||'')+' '+(r[DK.tab]||'')).toLowerCase();
-        r._ncode=ncode(r[DK.id]);
+        // search across EVERY field in the row (all sheet details): use the full-row _ALL if the feed provides it, else all values
+        r._hay=(r['_ALL'] || Object.values(r).join(' ')).toString().toLowerCase();
+        r._codes=[ncode(r[DK.id])].filter(Boolean);
         return r;
       });
       runDistri();
@@ -614,7 +615,8 @@
       const raw=dq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
       const qn=ncode(raw);
       let rows=distriData;
-      if(raw) rows=rows.filter(r=> (qn && r._ncode.indexOf(qn)!==-1) || r._hay.indexOf(raw)!==-1);
+      if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 ||
+        (qn.length>=2 && r._codes.some(code => code.indexOf(qn)!==-1 || (code.length>=3 && qn.indexOf(code)===0))));
       const shown=rows.slice(0,300);
       dstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+distriData.length.toLocaleString()+' channels'+(rows.length>300?' · showing first 300':'');
       if(!shown.length){ dresults.innerHTML=emptyState(raw||'that search'); return; }
@@ -628,6 +630,8 @@
       if((r[DK.name]||'').trim())   chips+='<span class="chip">'+esc(r[DK.name])+'</span>';
       if((r[DK.status]||'').trim()) chips+='<span class="chip">'+esc(r[DK.status])+'</span>';
       if((r[DK.team]||'').trim())   chips+='<span class="chip">MC: '+esc(r[DK.team])+'</span>';
+      if((r['DATE']||'').toString().trim())  chips+='<span class="chip">'+esc(r['DATE'])+'</span>';
+      if((r['NOTES']||'').toString().trim()) chips+='<span class="chip">📝 '+esc(r['NOTES'])+'</span>';
       if((r[DK.tab]||'').trim())    chips+='<span class="chip">'+esc(r[DK.tab])+'</span>';
       let acts='';
       if(url){ acts+='<a class="btn primary" href="'+esc(url)+'" target="_blank" rel="noopener">'+extIcon()+'View channel</a>';
