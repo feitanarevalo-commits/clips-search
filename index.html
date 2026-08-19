@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creator-cols-v4 -->
+  <!-- build: clip-title-copy-v5 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -447,7 +447,7 @@
       const dsLabel = ds==='legacy'?'Legacy' : ds==='new'?'New' : (r.dataset||'');
       const badge = r.dataset ? '<span class="badge '+(ds==='legacy'?'legacy':ds==='new'?'new':'other')+'">'+esc(dsLabel)+'</span>' : '';
       return '<article class="card">'+ media + badge +
-        '<h3 class="title" title="'+esc(disp)+'">'+esc(disp)+'</h3>'+
+        '<h3 class="title clickcopy" data-copy="'+esc(disp)+'" title="'+esc(disp)+' — click to copy">'+esc(disp)+'</h3>'+
         '<div class="chips"><span class="chip code copy" data-copy="'+esc(r.code||'')+'" title="'+esc(r.code||'')+' — click to copy"><span class="ctext">'+esc(r.code||'—')+'</span><span class="cicon">⧉</span></span></div>'+
         '<div class="actions">'+acts+'</div>'+
       '</article>';
