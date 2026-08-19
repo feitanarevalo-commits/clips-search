@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: tables-v3 -->
+  <!-- build: creator-cols-v4 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -125,7 +125,7 @@
     .tcell .cvlink{color:var(--accent-2); text-decoration:none}
     .tcell .cvlink:hover{text-decoration:underline}
     .trow .src-badge{display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
-    .creators-cols{grid-template-columns:minmax(150px,2fr) minmax(120px,1.4fr) minmax(110px,1.3fr) minmax(88px,1fr) minmax(88px,1fr) minmax(88px,1fr) minmax(120px,1.3fr); min-width:830px}
+    .creators-cols{grid-template-columns:minmax(140px,1.7fr) minmax(105px,1.2fr) minmax(95px,1.1fr) minmax(66px,.75fr) minmax(95px,1.1fr) minmax(82px,1fr) minmax(82px,1fr) minmax(82px,1fr) minmax(98px,1.1fr); min-width:980px}
     .distri-cols{grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(120px,1.4fr) minmax(70px,.7fr); min-width:930px}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
@@ -483,6 +483,7 @@
     // ===== Creators tab (live from Google Sheet) =====
     const CREATORS_FEED = 'https://script.google.com/macros/s/AKfycbzV_WtBwPMWIpYwN3QRATfT8Ehj75QkJll-X2VJqbNr_nJ9AnmOITvOBhtN2TJOEJ2W/exec';
     const CK = { cs:'CS CODE', vrl:'VRL CODE', src:'SOURCE', creator:'CREATOR', label:'ASSET LABEL',
+                 status:'STATUS', remarks:'REMARKS',
                  qa:'CS Code\n(Content Library Tracker by QA)', ing:'CS Code\n(Ingestion Masterfile)' };
     let creatorsData = null, creatorsLoading = false;
     const cq=$('cq'), cfilter=$('cfilter'), cstatus=$('cstatus'), cresults=$('cresults'), cclear=$('cclear');
@@ -565,7 +566,7 @@
       return '<div class="tcell mono'+(bad?' bad':'')+(v&&!bad?' copyable':'')+'"'+(v&&!bad?' data-copy="'+esc(v)+'"':'')+' title="'+esc(v)+'">'+esc(v||'—')+'</div>';
     }
     function creatorsHeader(){
-      return '<div class="thead creators-cols"><div>Asset Label</div><div>Source</div><div>Creator</div><div>CS Code</div><div>QA Tracker</div><div>Ingestion</div><div>VRL Code</div></div>';
+      return '<div class="thead creators-cols"><div>Asset Label</div><div>Source</div><div>Creator</div><div>Status</div><div>Remarks</div><div>CS Code</div><div>QA Tracker</div><div>Ingestion</div><div>VRL Code</div></div>';
     }
     function creatorRow(r){
       const label=r[CK.label]||r[CK.creator]||'—';
@@ -576,6 +577,8 @@
         '<div class="tcell strong copyable" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</div>'+
         '<div class="tcell">'+srcBadge+'</div>'+
         '<div class="tcell" title="'+esc(r[CK.creator]||'')+'">'+esc(r[CK.creator]||'—')+'</div>'+
+        '<div class="tcell" title="'+esc(r[CK.status]||'')+'">'+esc(r[CK.status]||'—')+'</div>'+
+        '<div class="tcell" title="'+esc(r[CK.remarks]||'')+'">'+esc(r[CK.remarks]||'—')+'</div>'+
         codeTcell(r[CK.cs])+codeTcell(r[CK.qa])+codeTcell(r[CK.ing])+codeTcell(r[CK.vrl])+
       '</div>';
     }
