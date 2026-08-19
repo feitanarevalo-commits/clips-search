@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: clip-title-copy-v5 -->
+  <!-- build: clip-status-v6 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -84,6 +84,11 @@
     .badge.legacy{color:#c98a12; background:rgba(210,153,34,.15); border-color:rgba(210,153,34,.42)}
     .badge.new{color:#2fa043; background:rgba(63,185,80,.15); border-color:rgba(63,185,80,.42)}
     .badge.other{color:var(--muted); background:var(--bg2); border-color:var(--line)}
+    .badges-row{display:flex; flex-wrap:wrap; gap:6px; align-self:flex-start}
+    .badge.hidden{color:var(--bad); background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.42)}
+    .badge.visible{color:var(--muted); background:var(--bg2); border-color:var(--line)}
+    .badge.onboarded{color:#2fa043; background:rgba(63,185,80,.14); border-color:rgba(63,185,80,.42)}
+    .badge.offboarded{color:var(--warn); background:rgba(210,153,34,.14); border-color:rgba(210,153,34,.42)}
     /* tabs */
     .tabs{display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid var(--line)}
     .tab{font:600 14px 'Plus Jakarta Sans',sans-serif; color:var(--muted); background:none; border:0; border-bottom:2px solid transparent; padding:10px 15px; cursor:pointer; margin-bottom:-1px; display:inline-flex; align-items:center; gap:7px; transition:.12s}
@@ -445,7 +450,12 @@
       } else acts = '<span class="chip">no link</span>';
       const ds=(r.dataset||'').toLowerCase();
       const dsLabel = ds==='legacy'?'Legacy' : ds==='new'?'New' : (r.dataset||'');
-      const badge = r.dataset ? '<span class="badge '+(ds==='legacy'?'legacy':ds==='new'?'new':'other')+'">'+esc(dsLabel)+'</span>' : '';
+      let badges = r.dataset ? '<span class="badge '+(ds==='legacy'?'legacy':ds==='new'?'new':'other')+'">'+esc(dsLabel)+'</span>' : '';
+      const hs=(r.hide_status||'').trim().toLowerCase();
+      if(hs) badges += '<span class="badge '+(hs==='hidden'?'hidden':'visible')+'">'+esc(r.hide_status)+'</span>';
+      const os=(r.onboarded_status||'').trim().toLowerCase();
+      if(os) badges += '<span class="badge '+(os==='onboarded'?'onboarded':'offboarded')+'">'+esc(r.onboarded_status)+'</span>';
+      const badge = badges ? '<div class="badges-row">'+badges+'</div>' : '';
       return '<article class="card">'+ media + badge +
         '<h3 class="title clickcopy" data-copy="'+esc(disp)+'" title="'+esc(disp)+' — click to copy">'+esc(disp)+'</h3>'+
         '<div class="chips"><span class="chip code copy" data-copy="'+esc(r.code||'')+'" title="'+esc(r.code||'')+' — click to copy"><span class="ctext">'+esc(r.code||'—')+'</span><span class="cicon">⧉</span></span></div>'+
