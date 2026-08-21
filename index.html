@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: clip-status-v6 -->
+  <!-- build: creators-supabase-v7 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -490,11 +490,10 @@
       else setTimeout(()=>$('q').focus(), 30);
     }
 
-    // ===== Creators tab (live from Google Sheet) =====
-    const CREATORS_FEED = 'https://script.google.com/macros/s/AKfycbzV_WtBwPMWIpYwN3QRATfT8Ehj75QkJll-X2VJqbNr_nJ9AnmOITvOBhtN2TJOEJ2W/exec';
+    // ===== Creators tab (Supabase-backed, loaded via all_creators RPC) =====
+    const CREATORS_FEED = SUPABASE_URL + '/rest/v1/rpc/all_creators';
     const CK = { cs:'CS CODE', vrl:'VRL CODE', src:'SOURCE', creator:'CREATOR', label:'ASSET LABEL',
-                 status:'STATUS', remarks:'REMARKS',
-                 qa:'CS Code\n(Content Library Tracker by QA)', ing:'CS Code\n(Ingestion Masterfile)' };
+                 status:'STATUS', remarks:'REMARKS', qa:'QA', ing:'ING' };
     let creatorsData = null, creatorsLoading = false;
     const cq=$('cq'), cfilter=$('cfilter'), cstatus=$('cstatus'), cresults=$('cresults'), cclear=$('cclear');
 
@@ -535,10 +534,12 @@
       if(!force){                                        // try this-session cache (instant on reload)
         try{ const c=sessionStorage.getItem('creators_cache'); if(c){ ingestCreators(JSON.parse(c)); creatorsLoading=false; return; } }catch(e){}
       }
-      cstatus.textContent='Loading creator list from the sheet…';
+      cstatus.textContent='Loading creator list…';
       cresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
       try{
-        const res=await fetch(CREATORS_FEED + (force?'?fresh=1':''), { cache:'no-store' });
+        const res=await fetch(CREATORS_FEED, { method:'POST', cache:'no-store',
+          headers:{ ...HEADERS, 'Content-Type':'application/json' }, body:'{}' });
+        if(!res.ok) throw new Error('HTTP '+res.status);
         const data=await res.json();
         try{ sessionStorage.setItem('creators_cache', JSON.stringify(data)); }catch(e){}
         ingestCreators(data);
