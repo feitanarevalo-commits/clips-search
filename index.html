@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: import-remember-v9 -->
+  <!-- build: import-modefix-v10 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -260,13 +260,13 @@
       <h2>Import / update from CSV</h2>
       <label>What to update
         <select id="impTarget">
-          <option value="clips">Clips Search — matched by code</option>
-          <option value="creators">Creator Search — full sheet snapshot</option>
+          <option value="clips">Clips Search</option>
+          <option value="creators">Creator Search</option>
         </select></label>
       <label id="impModeWrap">Update mode
         <select id="impMode">
-          <option value="replace">Replace — the file becomes the source of truth (rows not in it are removed)</option>
-          <option value="merge">Add &amp; update only — keep existing rows that aren't in the file</option>
+          <option value="replace">Replace</option>
+          <option value="merge">Add &amp; update only</option>
         </select></label>
       <label id="impDatasetWrap">Dataset <span style="font-weight:400">(clips only)</span>
         <input type="text" id="impDataset" placeholder="new or legacy"></label>
