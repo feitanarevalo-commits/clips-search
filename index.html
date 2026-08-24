@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creators-supabase-v7 -->
+  <!-- build: import-both-v8 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -257,12 +257,20 @@
   <div class="modal" id="importModal" hidden>
     <div class="modal-card">
       <button class="modal-x" id="importClose">✕</button>
-      <h2>Import / update clips from CSV</h2>
-      <p class="mnote">Clips are matched by <b>code</b>: existing clips are updated and new ones added — no duplicates.
-        Only the columns in your file are changed. Header may include any of:
-        <b>code (required), title, dropbox_url, r2_url</b>.</p>
-      <label>Dataset label <span style="font-weight:400">(optional — leave blank to keep existing)</span>
-        <input type="text" id="impDataset" placeholder="e.g. batch-2026-07"></label>
+      <h2>Import / update from CSV</h2>
+      <label>What to update
+        <select id="impTarget">
+          <option value="clips">Clips Search — matched by code</option>
+          <option value="creators">Creator Search — full sheet snapshot</option>
+        </select></label>
+      <label id="impModeWrap">Update mode
+        <select id="impMode">
+          <option value="replace">Replace — the file becomes the source of truth (rows not in it are removed)</option>
+          <option value="merge">Add &amp; update only — keep existing rows that aren't in the file</option>
+        </select></label>
+      <label id="impDatasetWrap">Dataset <span style="font-weight:400">(clips only)</span>
+        <input type="text" id="impDataset" placeholder="new or legacy"></label>
+      <p class="mnote" id="impNote"></p>
       <label>Import passphrase <input type="password" id="impPass" placeholder="Required to import" autocomplete="off"></label>
       <label>CSV file <input type="file" id="impFile" accept=".csv,text/csv"></label>
       <div class="mprogress" id="impStatus"></div>
@@ -284,7 +292,7 @@
   <script>
     const SUPABASE_URL = 'https://wokrdfqzwrausazzoedi.supabase.co';
     const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indva3JkZnF6d3JhdXNhenpvZWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzOTE5NDAsImV4cCI6MjA5Nzk2Nzk0MH0.YE0CvsTs3XlEJ0n0mBgdKVFy5Nwpys2C0wO96F8F0ho';
-    const IMPORT_FN = SUPABASE_URL + '/functions/v1/import_clips';
+    const IMPORT_FN = SUPABASE_URL + '/functions/v1/import_data';
     const LIMIT = 300;
     const HEADERS = { apikey: ANON_KEY, Authorization: 'Bearer ' + ANON_KEY };
 
@@ -370,46 +378,90 @@
       document.querySelectorAll('.thumb[data-src]').forEach(v => thumbIO.observe(v));
     }
 
-    // ---- import modal ----
+    // ---- import modal (Clips + Creators) ----
     $('importBtn').addEventListener('click', openImport);
     $('importClose').addEventListener('click', closeImport);
     $('impCancel').addEventListener('click', closeImport);
     $('importModal').addEventListener('click', e => { if(e.target.id==='importModal') closeImport(); });
     $('impRun').addEventListener('click', runImport);
-    $('impFile').addEventListener('change', () => { const f=$('impFile').files[0]; if(f && !$('impDataset').value) $('impDataset').value = f.name.replace(/\.csv$/i,''); });
+    $('impTarget').addEventListener('change', setImpUI);
+    $('impMode').addEventListener('change', setImpUI);
+    $('impFile').addEventListener('change', () => {
+      const f=$('impFile').files[0];
+      if(f && $('impTarget').value==='clips' && !$('impDataset').value){
+        const n=f.name.toLowerCase();
+        $('impDataset').value = /legacy/.test(n) ? 'legacy' : (/new/.test(n) ? 'new' : '');
+      }
+    });
     function isImportOpen(){ return !$('importModal').hasAttribute('hidden'); }
     function anyModalOpen(){ return isImportOpen() || !$('vmodal').hasAttribute('hidden'); }
-    function openImport(){ $('importModal').removeAttribute('hidden'); setImp('',''); $('impPass').focus(); }
+    function setImpUI(){
+      const isClips = $('impTarget').value==='clips', mode=$('impMode').value;
+      $('impModeWrap').style.display   = isClips ? '' : 'none';   // creators = replace only
+      $('impDatasetWrap').style.display= isClips ? '' : 'none';
+      let note;
+      if(!isClips){
+        note='Creator Search is a full snapshot of the sheet — importing REPLACES the whole creator list with your file. Export the MC sheet as CSV; its messy multi-line header is handled automatically.';
+      } else if(mode==='replace'){
+        note='Replace: within the chosen dataset, your file becomes the source of truth — clips not in it are removed (only after the whole file uploads successfully). Header: code (required); optional title, dropbox_url, r2_url, hide_status, onboarded_status.';
+      } else {
+        note='Add & update: clips are matched by code — existing updated, new added, nothing removed. Only the columns in your file change.';
+      }
+      $('impNote').textContent=note;
+    }
+    function openImport(){ $('importModal').removeAttribute('hidden'); setImp('',''); setImpUI(); $('impPass').focus(); }
     function closeImport(){ $('importModal').setAttribute('hidden',''); }
     function setImp(msg, cls){ const s=$('impStatus'); s.textContent=msg; s.className='mprogress'+(cls?' '+cls:''); }
+
     async function runImport(){
-      const pass=$('impPass').value.trim(), dataset=$('impDataset').value.trim(), file=$('impFile').files[0];
+      const target=$('impTarget').value;
+      const mode = target==='creators' ? 'replace' : $('impMode').value;
+      const dataset = target==='clips' ? $('impDataset').value.trim() : '';
+      const pass=$('impPass').value.trim(), file=$('impFile').files[0];
       if(!pass){ setImp('Enter the import passphrase.','err'); return; }
       if(!file){ setImp('Choose a CSV file.','err'); return; }
+      if(target==='clips' && mode==='replace' && !dataset){
+        setImp('Enter the dataset (new or legacy) so Replace only affects that dataset.','err'); return; }
       setImp('Reading file…');
       let text; try{ text = await file.text(); }catch(e){ setImp('Could not read file.','err'); return; }
-      const objs = csvToObjects(text);
+      let objs;
+      try{ objs = target==='creators' ? csvToCreatorRows(text) : csvToObjects(text); }
+      catch(e){ setImp('Could not parse the CSV: '+e.message,'err'); return; }
       if(!objs.length){ setImp('No data rows found in the file.','err'); return; }
+
+      const token = mode==='replace' ? ('imp-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)) : '';
+      const base = { target, mode, dataset, import_token: token };
       $('impRun').disabled = true;
-      const SIZE = 1000; let done = 0, failed = false;
+      const SIZE = 2000; let done = 0, failed = false;
       try{
         for(let i=0;i<objs.length;i+=SIZE){
           const batch = objs.slice(i, i+SIZE);
-          setImp('Importing… '+done.toLocaleString()+' / '+objs.length.toLocaleString());
+          setImp('Uploading… '+done.toLocaleString()+' / '+objs.length.toLocaleString());
           const res = await fetch(IMPORT_FN, { method:'POST',
-            headers:{ 'Content-Type':'application/json', 'x-admin-token':pass, apikey:ANON_KEY },
-            body: JSON.stringify({ dataset: dataset, rows: batch }) });
+            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-admin-token':pass },
+            body: JSON.stringify({ ...base, rows: batch }) });
           if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+res.status)); }
           done += batch.length;
         }
-      }catch(e){ failed=true; setImp('Import failed: '+e.message, 'err'); }
+        if(mode==='replace'){
+          setImp('Finalizing — removing rows not in the file…');
+          const res = await fetch(IMPORT_FN, { method:'POST',
+            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-admin-token':pass },
+            body: JSON.stringify({ ...base, finalize: true }) });
+          if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+res.status)); }
+        }
+      }catch(e){ failed=true; setImp('Import failed: '+e.message+(mode==='replace'?' — your old data was kept (not finalized).':''), 'err'); }
       $('impRun').disabled = false;
       if(failed) return;
-      setImp('✓ Done — '+done.toLocaleString()+' clip'+(done===1?'':'s')+' imported (existing updated, new added).', 'ok');
-      showToast('Imported '+done.toLocaleString()+' clips');
-      loadTotal(); loadFilters(); run();
+      const noun = target==='creators' ? 'creator' : 'clip';
+      setImp('✓ Done — '+done.toLocaleString()+' '+noun+' row'+(done===1?'':'s')+' uploaded'+(mode==='replace'?' (dataset replaced).':' (added / updated).'), 'ok');
+      showToast('Imported '+done.toLocaleString()+' '+noun+' rows');
+      if(target==='creators'){ try{ sessionStorage.removeItem('creators_cache'); }catch(e){} creatorsData=null; initCreators(true); }
+      else { loadTotal(); loadFilters(); run(); }
     }
-    function csvToObjects(text){
+
+    // parse CSV text -> array of string-arrays (RFC quotes / embedded newlines / BOM handled)
+    function csvToRows(text){
       if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);
       const rows=[]; let f='', row=[], inQ=false;
       for(let i=0;i<text.length;i++){ const c=text[i];
@@ -417,10 +469,29 @@
         else { if(c==='"') inQ=true; else if(c===','){ row.push(f); f=''; } else if(c==='\n'){ row.push(f); rows.push(row); row=[]; f=''; } else if(c!=='\r') f+=c; }
       }
       if(f!=='' || row.length){ row.push(f); rows.push(row); }
+      return rows;
+    }
+    // clips: header-keyed objects (code,title,dropbox_url,r2_url,hide_status,onboarded_status)
+    function csvToObjects(text){
+      const rows=csvToRows(text);
       if(rows.length<2) return [];
       const header = rows[0].map(h=>h.trim().toLowerCase());
       const out=[];
       for(let r=1;r<rows.length;r++){ if(rows[r].length===1 && rows[r][0].trim()==='') continue; const o={}; header.forEach((h,idx)=>{ o[h]=rows[r][idx]; }); out.push(o); }
+      return out;
+    }
+    // creators: MC export has a messy multi-line header + a duplicate CREATOR block, so map by
+    // COLUMN POSITION. Cols: 0 creator,1 asset_label,2 cs_code,3 vrl_code,4 status,5 remarks,6 source,(7 blank),8 qa,9 ing.
+    function csvToCreatorRows(text){
+      const rows=csvToRows(text);
+      if(rows.length<2) return [];
+      const out=[];
+      for(let r=1;r<rows.length;r++){
+        const c=rows[r]; if(!c) continue;
+        const rec={ creator:c[0], asset_label:c[1], cs_code:c[2], vrl_code:c[3], status:c[4],
+                    remarks:c[5], source:c[6], qa_code:c[8], ing_code:c[9] };
+        if(Object.values(rec).some(v => v!=null && String(v).trim()!=='')) out.push(rec);
+      }
       return out;
     }
 
