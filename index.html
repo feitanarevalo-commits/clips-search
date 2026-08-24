@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: import-both-v8 -->
+  <!-- build: import-remember-v9 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -384,8 +384,15 @@
     $('impCancel').addEventListener('click', closeImport);
     $('importModal').addEventListener('click', e => { if(e.target.id==='importModal') closeImport(); });
     $('impRun').addEventListener('click', runImport);
-    $('impTarget').addEventListener('change', setImpUI);
-    $('impMode').addEventListener('change', setImpUI);
+    $('impTarget').addEventListener('change', () => { setImpUI(); saveImpPrefs(); });
+    $('impMode').addEventListener('change', () => { setImpUI(); saveImpPrefs(); });
+    function saveImpPrefs(){ try{ localStorage.setItem('imp-prefs', JSON.stringify({ target:$('impTarget').value, mode:$('impMode').value })); }catch(e){} }
+    function loadImpPrefs(){
+      try{ const p=JSON.parse(localStorage.getItem('imp-prefs')||'{}');
+        if(p.target) $('impTarget').value=p.target;
+        if(p.mode) $('impMode').value=p.mode;
+      }catch(e){}
+    }
     $('impFile').addEventListener('change', () => {
       const f=$('impFile').files[0];
       if(f && $('impTarget').value==='clips' && !$('impDataset').value){
@@ -409,7 +416,7 @@
       }
       $('impNote').textContent=note;
     }
-    function openImport(){ $('importModal').removeAttribute('hidden'); setImp('',''); setImpUI(); $('impPass').focus(); }
+    function openImport(){ $('importModal').removeAttribute('hidden'); setImp('',''); loadImpPrefs(); setImpUI(); $('impPass').focus(); }
     function closeImport(){ $('importModal').setAttribute('hidden',''); }
     function setImp(msg, cls){ const s=$('impStatus'); s.textContent=msg; s.className='mprogress'+(cls?' '+cls:''); }
 
