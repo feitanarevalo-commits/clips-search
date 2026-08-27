@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creator-basecode-v11 -->
+  <!-- build: import-multifile-v12 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -268,11 +268,11 @@
           <option value="replace">Replace</option>
           <option value="merge">Add &amp; update only</option>
         </select></label>
-      <label id="impDatasetWrap">Dataset <span style="font-weight:400">(clips only)</span>
-        <input type="text" id="impDataset" placeholder="new or legacy"></label>
       <p class="mnote" id="impNote"></p>
       <label>Import passphrase <input type="password" id="impPass" placeholder="Required to import" autocomplete="off"></label>
-      <label>CSV file <input type="file" id="impFile" accept=".csv,text/csv"></label>
+      <label id="impFileLabel">CSV file <span style="font-weight:400">(you can select both clips files at once)</span>
+        <input type="file" id="impFile" accept=".csv,text/csv" multiple></label>
+      <div class="mnote" id="impDetected" style="margin-top:-4px"></div>
       <div class="mprogress" id="impStatus"></div>
       <div class="mactions"><button class="btn" id="impCancel">Cancel</button><button class="btn primary" id="impRun">Import</button></div>
     </div>
@@ -384,8 +384,9 @@
     $('impCancel').addEventListener('click', closeImport);
     $('importModal').addEventListener('click', e => { if(e.target.id==='importModal') closeImport(); });
     $('impRun').addEventListener('click', runImport);
-    $('impTarget').addEventListener('change', () => { setImpUI(); saveImpPrefs(); });
+    $('impTarget').addEventListener('change', () => { setImpUI(); saveImpPrefs(); showDetected(); });
     $('impMode').addEventListener('change', () => { setImpUI(); saveImpPrefs(); });
+    $('impFile').addEventListener('change', showDetected);
     function saveImpPrefs(){ try{ localStorage.setItem('imp-prefs', JSON.stringify({ target:$('impTarget').value, mode:$('impMode').value })); }catch(e){} }
     function loadImpPrefs(){
       try{ const p=JSON.parse(localStorage.getItem('imp-prefs')||'{}');
@@ -393,76 +394,88 @@
         if(p.mode) $('impMode').value=p.mode;
       }catch(e){}
     }
-    $('impFile').addEventListener('change', () => {
-      const f=$('impFile').files[0];
-      if(f && $('impTarget').value==='clips' && !$('impDataset').value){
-        const n=f.name.toLowerCase();
-        $('impDataset').value = /legacy/.test(n) ? 'legacy' : (/new/.test(n) ? 'new' : '');
-      }
-    });
+    // dataset auto-detected from the file name: files containing "legacy" -> legacy, everything else -> new
+    function detectDataset(name){ return /legacy/i.test(name) ? 'legacy' : 'new'; }
+    function showDetected(){
+      const el=$('impDetected'), files=[...$('impFile').files];
+      if($('impTarget').value!=='clips' || !files.length){ el.textContent=''; return; }
+      el.innerHTML = files.map(f=>'• '+esc(f.name)+' → dataset <b>'+detectDataset(f.name)+'</b>').join('<br>');
+    }
     function isImportOpen(){ return !$('importModal').hasAttribute('hidden'); }
     function anyModalOpen(){ return isImportOpen() || !$('vmodal').hasAttribute('hidden'); }
     function setImpUI(){
       const isClips = $('impTarget').value==='clips', mode=$('impMode').value;
-      $('impModeWrap').style.display   = isClips ? '' : 'none';   // creators = replace only
-      $('impDatasetWrap').style.display= isClips ? '' : 'none';
+      $('impModeWrap').style.display = isClips ? '' : 'none';   // creators = replace only
+      $('impFileLabel').querySelector('span').style.display = isClips ? '' : 'none';
       let note;
       if(!isClips){
         note='Creator Search is a full snapshot of the sheet — importing REPLACES the whole creator list with your file. Export the MC sheet as CSV; its messy multi-line header is handled automatically.';
       } else if(mode==='replace'){
-        note='Replace: within the chosen dataset, your file becomes the source of truth — clips not in it are removed (only after the whole file uploads successfully). Header: code (required); optional title, dropbox_url, r2_url, hide_status, onboarded_status.';
+        note='Replace: your file(s) become the source of truth — clips not in a file are removed from that file’s dataset (only after it uploads successfully). Select one or both clips CSVs; the dataset (new / legacy) is detected from each file name. Header: code (required); optional title, dropbox_url, r2_url, hide_status, onboarded_status.';
       } else {
-        note='Add & update: clips are matched by code — existing updated, new added, nothing removed. Only the columns in your file change.';
+        note='Add & update: clips are matched by code — existing updated, new added, nothing removed. You can select both files at once; the dataset is detected from each file name.';
       }
       $('impNote').textContent=note;
     }
-    function openImport(){ $('importModal').removeAttribute('hidden'); setImp('',''); loadImpPrefs(); setImpUI(); $('impPass').focus(); }
+    function openImport(){ $('importModal').removeAttribute('hidden'); setImp('',''); loadImpPrefs(); setImpUI(); showDetected(); $('impPass').focus(); }
     function closeImport(){ $('importModal').setAttribute('hidden',''); }
     function setImp(msg, cls){ const s=$('impStatus'); s.textContent=msg; s.className='mprogress'+(cls?' '+cls:''); }
+
+    // upload one already-parsed file's rows (+ finalize the sweep if replace). Returns rows written.
+    async function importFileRows(objs, { target, mode, dataset, pass, label }){
+      const token = mode==='replace' ? ('imp-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)) : '';
+      const base = { target, mode, dataset, import_token: token };
+      const SIZE = 2000; let done = 0;
+      for(let i=0;i<objs.length;i+=SIZE){
+        const batch = objs.slice(i, i+SIZE);
+        setImp(label+'Uploading… '+done.toLocaleString()+' / '+objs.length.toLocaleString());
+        const res = await fetch(IMPORT_FN, { method:'POST',
+          headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-admin-token':pass },
+          body: JSON.stringify({ ...base, rows: batch }) });
+        if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+res.status)); }
+        done += batch.length;
+      }
+      if(mode==='replace'){
+        setImp(label+'Finalizing — removing rows not in the file…');
+        const res = await fetch(IMPORT_FN, { method:'POST',
+          headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-admin-token':pass },
+          body: JSON.stringify({ ...base, finalize: true }) });
+        if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+res.status)); }
+      }
+      return done;
+    }
 
     async function runImport(){
       const target=$('impTarget').value;
       const mode = target==='creators' ? 'replace' : $('impMode').value;
-      const dataset = target==='clips' ? $('impDataset').value.trim() : '';
-      const pass=$('impPass').value.trim(), file=$('impFile').files[0];
+      const pass=$('impPass').value.trim();
+      const files=[...$('impFile').files];
       if(!pass){ setImp('Enter the import passphrase.','err'); return; }
-      if(!file){ setImp('Choose a CSV file.','err'); return; }
-      if(target==='clips' && mode==='replace' && !dataset){
-        setImp('Enter the dataset (new or legacy) so Replace only affects that dataset.','err'); return; }
-      setImp('Reading file…');
-      let text; try{ text = await file.text(); }catch(e){ setImp('Could not read file.','err'); return; }
-      let objs;
-      try{ objs = target==='creators' ? csvToCreatorRows(text) : csvToObjects(text); }
-      catch(e){ setImp('Could not parse the CSV: '+e.message,'err'); return; }
-      if(!objs.length){ setImp('No data rows found in the file.','err'); return; }
+      if(!files.length){ setImp('Choose a CSV file.','err'); return; }
 
-      const token = mode==='replace' ? ('imp-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)) : '';
-      const base = { target, mode, dataset, import_token: token };
+      // creators = one snapshot from a single file; clips = one or more files, dataset auto-detected per file
+      const jobs = target==='creators'
+        ? [{ file: files[0], dataset: '' }]
+        : files.map(f => ({ file: f, dataset: detectDataset(f.name) }));
+
       $('impRun').disabled = true;
-      const SIZE = 2000; let done = 0, failed = false;
+      let total = 0, failed = false;
       try{
-        for(let i=0;i<objs.length;i+=SIZE){
-          const batch = objs.slice(i, i+SIZE);
-          setImp('Uploading… '+done.toLocaleString()+' / '+objs.length.toLocaleString());
-          const res = await fetch(IMPORT_FN, { method:'POST',
-            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-admin-token':pass },
-            body: JSON.stringify({ ...base, rows: batch }) });
-          if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+res.status)); }
-          done += batch.length;
+        for(let k=0;k<jobs.length;k++){
+          const { file, dataset } = jobs[k];
+          const label = jobs.length>1 ? '['+(k+1)+'/'+jobs.length+'] '+(dataset?dataset+': ':'') : '';
+          setImp(label+'Reading '+file.name+'…');
+          const text = await file.text();
+          const objs = target==='creators' ? csvToCreatorRows(text) : csvToObjects(text);
+          if(!objs.length) throw new Error('No data rows in '+file.name);
+          total += await importFileRows(objs, { target, mode, dataset, pass, label });
         }
-        if(mode==='replace'){
-          setImp('Finalizing — removing rows not in the file…');
-          const res = await fetch(IMPORT_FN, { method:'POST',
-            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-admin-token':pass },
-            body: JSON.stringify({ ...base, finalize: true }) });
-          if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+res.status)); }
-        }
-      }catch(e){ failed=true; setImp('Import failed: '+e.message+(mode==='replace'?' — your old data was kept (not finalized).':''), 'err'); }
+      }catch(e){ failed=true; setImp('Import failed: '+e.message+(mode==='replace'?' — old data kept where not finalized.':''), 'err'); }
       $('impRun').disabled = false;
       if(failed) return;
       const noun = target==='creators' ? 'creator' : 'clip';
-      setImp('✓ Done — '+done.toLocaleString()+' '+noun+' row'+(done===1?'':'s')+' uploaded'+(mode==='replace'?' (dataset replaced).':' (added / updated).'), 'ok');
-      showToast('Imported '+done.toLocaleString()+' '+noun+' rows');
+      setImp('✓ Done — '+total.toLocaleString()+' '+noun+' row'+(total===1?'':'s')+' from '+jobs.length+' file'+(jobs.length===1?'':'s')+(mode==='replace'?' (replaced).':' (added / updated).'), 'ok');
+      showToast('Imported '+total.toLocaleString()+' '+noun+' rows');
       if(target==='creators'){ try{ sessionStorage.removeItem('creators_cache'); }catch(e){} creatorsData=null; initCreators(true); }
       else { loadTotal(); loadFilters(); run(); }
     }
