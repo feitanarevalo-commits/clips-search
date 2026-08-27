@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: import-multifile-v12 -->
+  <!-- build: import-streaming-v13 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -421,20 +421,50 @@
     function closeImport(){ $('importModal').setAttribute('hidden',''); }
     function setImp(msg, cls){ const s=$('impStatus'); s.textContent=msg; s.className='mprogress'+(cls?' '+cls:''); }
 
-    // upload one already-parsed file's rows (+ finalize the sweep if replace). Returns rows written.
-    async function importFileRows(objs, { target, mode, dataset, pass, label }){
+    // Stream-parse one CSV file's text and upload it in 2000-row batches (+ finalize sweep if
+    // replace). Only ONE batch is held in memory at a time, so 90MB+ files (770k rows) don't
+    // exhaust the tab (the old "parse whole file into an array first" path caused Failed to fetch).
+    async function importFileText(text, { target, mode, dataset, pass, label }){
       const token = mode==='replace' ? ('imp-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)) : '';
       const base = { target, mode, dataset, import_token: token };
-      const SIZE = 2000; let done = 0;
-      for(let i=0;i<objs.length;i+=SIZE){
-        const batch = objs.slice(i, i+SIZE);
-        setImp(label+'Uploading… '+done.toLocaleString()+' / '+objs.length.toLocaleString());
+      const SIZE = 2000, isClips = target!=='creators';
+      if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);
+      let batch=[], done=0, header=null, rowIdx=0;
+      async function sendBatch(){
+        setImp(label+'Uploading… '+done.toLocaleString()+' rows');
         const res = await fetch(IMPORT_FN, { method:'POST',
           headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-admin-token':pass },
           body: JSON.stringify({ ...base, rows: batch }) });
         if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+res.status)); }
-        done += batch.length;
+        done += batch.length; batch=[];
       }
+      function addRow(fields){                                  // returns true when the batch is full
+        if(rowIdx++ === 0){ if(isClips) header=fields.map(h=>h.trim().toLowerCase()); return false; }   // header row
+        let obj;
+        if(isClips){
+          if(fields.length===1 && (fields[0]==null || fields[0].trim()==='')) return false;   // blank line
+          obj={}; for(let j=0;j<header.length;j++) obj[header[j]]=fields[j];
+        } else {                                                // creators: map by column position
+          const c=fields;
+          obj={ creator:c[0], asset_label:c[1], cs_code:c[2], vrl_code:c[3], status:c[4], remarks:c[5], source:c[6], qa_code:c[8], ing_code:c[9] };
+          let any=false; for(const k in obj){ if(obj[k]!=null && String(obj[k]).trim()!==''){ any=true; break; } }
+          if(!any) return false;
+        }
+        batch.push(obj);
+        return batch.length>=SIZE;
+      }
+      // single-pass CSV parse over the full string (RFC quotes / embedded newlines / \r handling)
+      let f='', row=[], inQ=false;
+      for(let i=0;i<text.length;i++){ const c=text[i];
+        if(inQ){ if(c==='"'){ if(text[i+1]==='"'){ f+='"'; i++; } else inQ=false; } else f+=c; }
+        else { if(c==='"') inQ=true;
+          else if(c===','){ row.push(f); f=''; }
+          else if(c==='\n'){ row.push(f); if(addRow(row)) await sendBatch(); row=[]; f=''; }
+          else if(c!=='\r') f+=c; }
+      }
+      if(f!=='' || row.length){ row.push(f); addRow(row); }     // trailing row with no newline
+      if(done===0 && batch.length===0) throw new Error('no data rows found');
+      if(batch.length) await sendBatch();
       if(mode==='replace'){
         setImp(label+'Finalizing — removing rows not in the file…');
         const res = await fetch(IMPORT_FN, { method:'POST',
@@ -466,9 +496,7 @@
           const label = jobs.length>1 ? '['+(k+1)+'/'+jobs.length+'] '+(dataset?dataset+': ':'') : '';
           setImp(label+'Reading '+file.name+'…');
           const text = await file.text();
-          const objs = target==='creators' ? csvToCreatorRows(text) : csvToObjects(text);
-          if(!objs.length) throw new Error('No data rows in '+file.name);
-          total += await importFileRows(objs, { target, mode, dataset, pass, label });
+          total += await importFileText(text, { target, mode, dataset, pass, label });
         }
       }catch(e){ failed=true; setImp('Import failed: '+e.message+(mode==='replace'?' — old data kept where not finalized.':''), 'err'); }
       $('impRun').disabled = false;
