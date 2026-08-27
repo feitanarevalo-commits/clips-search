@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: import-modefix-v10 -->
+  <!-- build: creator-basecode-v11 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -593,10 +593,23 @@
     }
     // normalize a code: lowercase, strip everything non-alphanumeric → format-agnostic
     function ncode(s){ return (s==null?'':String(s)).toLowerCase().replace(/[^a-z0-9]/g,''); }
+    // "base" code for matching: drop the asset number after VVVxxx on VRL codes
+    // (VRL-VVV007-1013270 -> vrlvvv007), and drop trailing letters on CS codes
+    // (CS00514A / CS00514B -> cs00514). Uses the dash structure before stripping separators.
+    function nbase(raw){
+      if(raw==null) return '';
+      let s=String(raw).trim().toLowerCase().replace(/\([^)]*\)/g,' ');   // drop (..) suffixes
+      const m=s.match(/vvv\d+/);                                          // VRL channel id (dash stops the \d+)
+      if(m) return ncode(s.slice(0, s.indexOf(m[0])+m[0].length));        // -> vrlvvv007
+      s=ncode(s);                                                         // cs00514b
+      const cm=s.match(/^([a-z]*\d+)[a-z]+$/);                            // letters+digits then trailing letters
+      return cm ? cm[1] : s;                                             // -> cs00514
+    }
     function ingestCreators(data){
       creatorsData=normalizeFeed(data).map(r=>{
         r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.src]||'')).toLowerCase();       // name/label/source (raw)
         r._codes=[r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(ncode).filter(Boolean);             // codes (format-agnostic, per-field)
+        r._bases=[...new Set([r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(nbase).filter(Boolean))]; // base codes (letters/asset-nums dropped)
         r._status=creatorStatus(r);
         const src=String(r[CK.src]||'').trim(), su=src.toUpperCase();
         r._term=su.indexOf('TERMINAT')!==-1;
@@ -635,13 +648,16 @@
       if(!creatorsData) return;
       const raw=cq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
       const qn=ncode(raw.replace(/\([^)]*\)/g,' ')); // drop (..) suffixes, then format-agnostic code query
+      const qb=nbase(raw);                            // base of the query (trailing letters / VRL asset-num dropped)
       const onlyIssues=cfilter.value==='issues';
       let rows=creatorsData;
       if(onlyIssues) rows=rows.filter(r=>r._status!=='ok');
       // code match: stored contains query (partial) OR query starts with a stored code
-      // (so extra suffixes like "(86)" / "_5" are disregarded), plus raw name/label/source search
+      // (so extra suffixes like "(86)" / "_5" are disregarded); base match so CS00514A/B and
+      // VRL-VVV007-<anything> collapse to the same code; plus raw name/label/source search
       if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 ||
-        (qn.length>=2 && r._codes.some(code => code.indexOf(qn)!==-1 || (code.length>=3 && qn.indexOf(code)===0))));
+        (qn.length>=2 && r._codes.some(code => code.indexOf(qn)!==-1 || (code.length>=3 && qn.indexOf(code)===0))) ||
+        (qb.length>=3 && r._bases.some(b => b===qb || b.indexOf(qb)===0 || qb.indexOf(b)===0)));
       const shown=rows.slice(0,300);
       const issues=creatorsData.filter(r=>r._status!=='ok').length;
       cstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+creatorsData.length.toLocaleString()+
