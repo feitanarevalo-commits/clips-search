@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creators-nowrap-v16 -->
+  <!-- build: creators-arrange-v17 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -132,7 +132,7 @@
     .tcell .cvlink{color:var(--accent-2); text-decoration:none}
     .tcell .cvlink:hover{text-decoration:underline}
     .trow .src-badge{display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
-    .creators-cols{grid-template-columns:minmax(150px,1.7fr) minmax(140px,1.5fr) minmax(95px,1fr) minmax(180px,1.7fr) minmax(90px,1fr) minmax(95px,1.1fr) minmax(105px,1.1fr) minmax(82px,1fr) minmax(82px,1fr); min-width:1120px}
+    .creators-cols{grid-template-columns:minmax(150px,1.7fr) minmax(105px,1.2fr) minmax(140px,1.5fr) minmax(95px,1fr) minmax(180px,1.7fr) minmax(120px,1.3fr) minmax(82px,1fr) minmax(82px,1fr); min-width:1060px}
     .creators-cols .tcell{overflow:visible; white-space:normal; overflow-wrap:anywhere}
     .trow.creators-cols{align-items:start}
     .distri-cols{grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(120px,1.4fr) minmax(70px,.7fr); min-width:930px}
@@ -716,7 +716,7 @@
       return '<div class="tcell mono'+(extra?' '+extra:'')+(bad?' bad':'')+(v&&!bad?' copyable':'')+'"'+(v&&!bad?' data-copy="'+esc(v)+'"':'')+' title="'+esc(v)+'">'+esc(v||'—')+'</div>';
     }
     function creatorsHeader(){
-      return '<div class="thead creators-cols"><div>Asset Label</div><div>Creator</div><div>CS Code</div><div>VRL Code</div><div>Status</div><div>Remarks</div><div>Source</div><div>QA Tracker</div><div>Ingestion</div></div>';
+      return '<div class="thead creators-cols"><div>Asset Label</div><div>Source</div><div>Creator</div><div>CS Code</div><div>VRL Code</div><div>Remarks</div><div>QA Tracker</div><div>Ingestion</div></div>';
     }
     function creatorRow(r){
       const label=r[CK.label]||r[CK.creator]||'—';
@@ -726,11 +726,10 @@
       const miss = r._status!=='ok' ? ' miss-'+r._status : '';
       return '<div class="trow creators-cols'+miss+'">'+
         '<div class="tcell strong copyable asset" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</div>'+
+        '<div class="tcell">'+srcBadge+'</div>'+
         '<div class="tcell" title="'+esc(creator)+'">'+esc(creator)+'</div>'+
         codeTcell(r[CK.cs])+codeTcell(r[CK.vrl],'vrlcell')+
-        '<div class="tcell" title="'+esc(r[CK.status]||'')+'">'+esc(r[CK.status]||'—')+'</div>'+
         '<div class="tcell" title="'+esc(r[CK.remarks]||'')+'">'+esc(r[CK.remarks]||'—')+'</div>'+
-        '<div class="tcell">'+srcBadge+'</div>'+
         codeTcell(r[CK.qa])+codeTcell(r[CK.ing])+
       '</div>';
     }
