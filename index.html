@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creators-assetlabel-v15 -->
+  <!-- build: creators-nowrap-v16 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -133,7 +133,8 @@
     .tcell .cvlink:hover{text-decoration:underline}
     .trow .src-badge{display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
     .creators-cols{grid-template-columns:minmax(150px,1.7fr) minmax(140px,1.5fr) minmax(95px,1fr) minmax(180px,1.7fr) minmax(90px,1fr) minmax(95px,1.1fr) minmax(105px,1.1fr) minmax(82px,1fr) minmax(82px,1fr); min-width:1120px}
-    .creators-cols .vrlcell{overflow:visible; white-space:normal; word-break:break-word}
+    .creators-cols .tcell{overflow:visible; white-space:normal; overflow-wrap:anywhere}
+    .trow.creators-cols{align-items:start}
     .distri-cols{grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(120px,1.4fr) minmax(70px,.7fr); min-width:930px}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
