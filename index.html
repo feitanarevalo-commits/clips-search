@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creators-master-v14 -->
+  <!-- build: creators-assetlabel-v15 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -125,12 +125,15 @@
     .tcell.strong{font-weight:600; color:var(--text)}
     .tcell.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace; font-size:12px; color:var(--text)}
     .tcell.mono.bad{color:var(--bad)}
+    .tcell.asset{font-weight:700; color:var(--accent-2)}
+    .tcell.asset:hover{text-decoration:underline}
     .tcell.copyable{cursor:pointer}
     .tcell.copyable:hover{color:var(--accent-2)}
     .tcell .cvlink{color:var(--accent-2); text-decoration:none}
     .tcell .cvlink:hover{text-decoration:underline}
     .trow .src-badge{display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
-    .creators-cols{grid-template-columns:minmax(140px,1.6fr) minmax(140px,1.6fr) minmax(95px,1.1fr) minmax(108px,1.2fr) minmax(90px,1fr) minmax(95px,1.1fr) minmax(105px,1.15fr) minmax(82px,1fr) minmax(82px,1fr); min-width:980px}
+    .creators-cols{grid-template-columns:minmax(150px,1.7fr) minmax(140px,1.5fr) minmax(95px,1fr) minmax(180px,1.7fr) minmax(90px,1fr) minmax(95px,1.1fr) minmax(105px,1.1fr) minmax(82px,1fr) minmax(82px,1fr); min-width:1120px}
+    .creators-cols .vrlcell{overflow:visible; white-space:normal; word-break:break-word}
     .distri-cols{grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(120px,1.4fr) minmax(70px,.7fr); min-width:930px}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
@@ -706,13 +709,13 @@
       if(!shown.length){ cresults.innerHTML=emptyState(raw||'that filter'); return; }
       cresults.innerHTML=creatorsHeader()+shown.map(creatorRow).join('');
     }
-    function codeTcell(v){
+    function codeTcell(v, extra){
       v=(v==null?'':String(v)).trim();
       const bad = v==='' || v==='#N/A' || v==='N/A';
-      return '<div class="tcell mono'+(bad?' bad':'')+(v&&!bad?' copyable':'')+'"'+(v&&!bad?' data-copy="'+esc(v)+'"':'')+' title="'+esc(v)+'">'+esc(v||'—')+'</div>';
+      return '<div class="tcell mono'+(extra?' '+extra:'')+(bad?' bad':'')+(v&&!bad?' copyable':'')+'"'+(v&&!bad?' data-copy="'+esc(v)+'"':'')+' title="'+esc(v)+'">'+esc(v||'—')+'</div>';
     }
     function creatorsHeader(){
-      return '<div class="thead creators-cols"><div>Creator</div><div>Asset Label</div><div>CS Code</div><div>VRL Code</div><div>Status</div><div>Remarks</div><div>Source</div><div>QA Tracker</div><div>Ingestion</div></div>';
+      return '<div class="thead creators-cols"><div>Asset Label</div><div>Creator</div><div>CS Code</div><div>VRL Code</div><div>Status</div><div>Remarks</div><div>Source</div><div>QA Tracker</div><div>Ingestion</div></div>';
     }
     function creatorRow(r){
       const label=r[CK.label]||r[CK.creator]||'—';
@@ -721,9 +724,9 @@
       const srcBadge='<span class="src-badge '+r._srcState+'" title="'+esc(srcVal)+'">'+esc(srcVal||'—')+'</span>';
       const miss = r._status!=='ok' ? ' miss-'+r._status : '';
       return '<div class="trow creators-cols'+miss+'">'+
-        '<div class="tcell strong" title="'+esc(creator)+'">'+esc(creator)+'</div>'+
-        '<div class="tcell copyable" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</div>'+
-        codeTcell(r[CK.cs])+codeTcell(r[CK.vrl])+
+        '<div class="tcell strong copyable asset" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</div>'+
+        '<div class="tcell" title="'+esc(creator)+'">'+esc(creator)+'</div>'+
+        codeTcell(r[CK.cs])+codeTcell(r[CK.vrl],'vrlcell')+
         '<div class="tcell" title="'+esc(r[CK.status]||'')+'">'+esc(r[CK.status]||'—')+'</div>'+
         '<div class="tcell" title="'+esc(r[CK.remarks]||'')+'">'+esc(r[CK.remarks]||'—')+'</div>'+
         '<div class="tcell">'+srcBadge+'</div>'+
