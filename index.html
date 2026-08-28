@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creators-arrange-v17 -->
+  <!-- build: creators-serverside-v18 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -508,7 +508,7 @@
       const noun = target==='creators' ? 'creator' : 'clip';
       setImp('✓ Done — '+total.toLocaleString()+' '+noun+' row'+(total===1?'':'s')+' from '+jobs.length+' file'+(jobs.length===1?'':'s')+(mode==='replace'?' (replaced).':' (added / updated).'), 'ok');
       showToast('Imported '+total.toLocaleString()+' '+noun+' rows');
-      if(target==='creators'){ try{ sessionStorage.removeItem('creators_cache'); }catch(e){} creatorsData=null; initCreators(true); }
+      if(target==='creators'){ initCreators(true); }
       else { loadTotal(); loadFilters(); run(); }
     }
 
@@ -613,12 +613,16 @@
       else setTimeout(()=>$('q').focus(), 30);
     }
 
-    // ===== Creators tab (Supabase-backed, loaded via all_creators RPC) =====
-    const CREATORS_FEED = SUPABASE_URL + '/rest/v1/rpc/all_creators';
-    const CK = { cs:'CS CODE', vrl:'VRL CODE', src:'SOURCE', creator:'CREATOR', label:'ASSET LABEL',
-                 status:'STATUS', remarks:'REMARKS', qa:'QA', ing:'ING' };
-    let creatorsData = null, creatorsLoading = false;
+    // ===== Creators tab (SERVER-SIDE search via search_creators RPC — no full client load) =====
+    const CSEARCH_FN = SUPABASE_URL + '/rest/v1/rpc/search_creators';
+    const CSTATS_FN  = SUPABASE_URL + '/rest/v1/rpc/creators_stats';
+    const CK = { cs:'cs_code', vrl:'vrl_code', src:'source', creator:'creator', label:'asset_label',
+                 status:'status', remarks:'remarks', qa:'qa_code', ing:'ing_code' };
+    let creatorsSeq = 0, statsLoaded = false, creatorsTotal = 0, creatorsIssues = 0;
     const cq=$('cq'), cfilter=$('cfilter'), cstatus=$('cstatus'), cresults=$('cresults'), cclear=$('cclear');
+    function srcState(src){ const su=String(src||'').trim().toUpperCase();
+      if(su.indexOf('TERMINAT')!==-1) return 'terminated';
+      return (su===''||su==='#N/A'||su==='N/A') ? 'unknown' : 'active'; }
 
     function cnorm(v){ v=(v==null?'':String(v)).trim().toUpperCase(); return (v==='#N/A'||v==='N/A')?'':v; }
     function creatorStatus(r){
@@ -650,65 +654,46 @@
       const cm=s.match(/^([a-z]*\d+)[a-z]+$/);                            // letters+digits then trailing letters
       return cm ? cm[1] : s;                                             // -> cs00514
     }
-    function ingestCreators(data){
-      creatorsData=normalizeFeed(data).map(r=>{
-        r._hay=((r[CK.creator]||'')+' '+(r[CK.label]||'')+' '+(r[CK.src]||'')).toLowerCase();       // name/label/source (raw)
-        r._codes=[r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(ncode).filter(Boolean);             // codes (format-agnostic, per-field)
-        r._bases=[...new Set([r[CK.cs], r[CK.vrl], r[CK.qa], r[CK.ing]].map(nbase).filter(Boolean))]; // base codes (letters/asset-nums dropped)
-        r._status=creatorStatus(r);
-        const src=String(r[CK.src]||'').trim(), su=src.toUpperCase();
-        r._term=su.indexOf('TERMINAT')!==-1;
-        r._srcState = r._term ? 'terminated' : (src===''||su==='#N/A'||su==='N/A' ? 'unknown' : 'active');
-        return r;
-      });
-      runCreators();
+    async function loadCreatorStats(){
+      try{
+        const r=await fetch(CSTATS_FN, { method:'POST', cache:'no-store',
+          headers:{ ...HEADERS, 'Content-Type':'application/json' }, body:'{}' });
+        const s=await r.json(); creatorsTotal=s.total||0; creatorsIssues=s.issues||0; statsLoaded=true;
+      }catch(e){}
     }
     async function initCreators(force){
-      if(creatorsLoading) return;
-      if(!force && creatorsData) return;                 // already in memory
-      creatorsLoading=true;
-      if(!force){                                        // try this-session cache (instant on reload)
-        try{ const c=sessionStorage.getItem('creators_cache'); if(c){ ingestCreators(JSON.parse(c)); creatorsLoading=false; return; } }catch(e){}
+      if(force) statsLoaded=false;
+      if(!statsLoaded){
+        cstatus.textContent='Loading…';
+        cresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
+        await loadCreatorStats();
       }
-      cstatus.textContent='Loading creator list…';
-      cresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
-      try{
-        const res=await fetch(CREATORS_FEED, { method:'POST', cache:'no-store',
-          headers:{ ...HEADERS, 'Content-Type':'application/json' }, body:'{}' });
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const data=await res.json();
-        try{ sessionStorage.setItem('creators_cache', JSON.stringify(data)); }catch(e){}
-        ingestCreators(data);
-        showToast('Creator list updated');
-      }catch(e){ cstatus.textContent='Could not load creator list: '+e.message; cresults.innerHTML=''; }
-      creatorsLoading=false;
+      runCreators();
     }
-    $('crefresh').addEventListener('click', () => { try{ sessionStorage.removeItem('creators_cache'); }catch(e){} initCreators(true); });
-    const debouncedCreators = debounce(runCreators, 140);
+    $('crefresh').addEventListener('click', () => initCreators(true));
+    const debouncedCreators = debounce(runCreators, 220);
     cq.addEventListener('input', () => { cclear.style.display=cq.value?'block':'none'; debouncedCreators(); });
     cfilter.addEventListener('change', runCreators);
     cclear.addEventListener('click', () => { cq.value=''; cclear.style.display='none'; cq.focus(); runCreators(); });
 
-    function runCreators(){
-      if(!creatorsData) return;
-      const raw=cq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
-      const qn=ncode(raw.replace(/\([^)]*\)/g,' ')); // drop (..) suffixes, then format-agnostic code query
-      const qb=nbase(raw);                            // base of the query (trailing letters / VRL asset-num dropped)
+    // server-side search: one RPC call per query; a sequence guard drops out-of-order responses
+    async function runCreators(){
+      const q=cq.value.trim();
       const onlyIssues=cfilter.value==='issues';
-      let rows=creatorsData;
-      if(onlyIssues) rows=rows.filter(r=>r._status!=='ok');
-      // code match: stored contains query (partial) OR query starts with a stored code
-      // (so extra suffixes like "(86)" / "_5" are disregarded); base match so CS00514A/B and
-      // VRL-VVV007-<anything> collapse to the same code; plus raw name/label/source search
-      if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 ||
-        (qn.length>=2 && r._codes.some(code => code.indexOf(qn)!==-1 || (code.length>=3 && qn.indexOf(code)===0))) ||
-        (qb.length>=3 && r._bases.some(b => b===qb || b.indexOf(qb)===0 || qb.indexOf(b)===0)));
-      const shown=rows.slice(0,300);
-      const issues=creatorsData.filter(r=>r._status!=='ok').length;
-      cstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+creatorsData.length.toLocaleString()+
-        ' creators'+(rows.length>300?' · showing first 300':'')+' · <span style="color:var(--warn)">'+issues.toLocaleString()+' with issues</span>';
-      if(!shown.length){ cresults.innerHTML=emptyState(raw||'that filter'); return; }
-      cresults.innerHTML=creatorsHeader()+shown.map(creatorRow).join('');
+      const seq=++creatorsSeq;
+      if(!statsLoaded) await loadCreatorStats();
+      try{
+        const res=await fetch(CSEARCH_FN, { method:'POST', cache:'no-store',
+          headers:{ ...HEADERS, 'Content-Type':'application/json' },
+          body: JSON.stringify({ q: q, only_issues: onlyIssues, lim: 300 }) });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const data=await res.json();                 // { count, rows }
+        if(seq!==creatorsSeq) return;                // a newer search already fired
+        const rows=data.rows||[], count=data.count||0;
+        cstatus.innerHTML='<b style="color:var(--text)">'+count.toLocaleString()+'</b> of '+creatorsTotal.toLocaleString()+
+          ' creators'+(count>300?' · showing first 300':'')+' · <span style="color:var(--warn)">'+creatorsIssues.toLocaleString()+' with issues</span>';
+        cresults.innerHTML = rows.length ? (creatorsHeader()+rows.map(creatorRow).join('')) : emptyState(q||'that filter');
+      }catch(e){ if(seq===creatorsSeq){ cstatus.textContent='Search failed: '+e.message; cresults.innerHTML=''; } }
     }
     function codeTcell(v, extra){
       v=(v==null?'':String(v)).trim();
@@ -722,8 +707,8 @@
       const label=r[CK.label]||r[CK.creator]||'—';
       const creator=r[CK.creator]||'—';
       const srcVal=(r[CK.src]||'').trim();
-      const srcBadge='<span class="src-badge '+r._srcState+'" title="'+esc(srcVal)+'">'+esc(srcVal||'—')+'</span>';
-      const miss = r._status!=='ok' ? ' miss-'+r._status : '';
+      const srcBadge='<span class="src-badge '+srcState(srcVal)+'" title="'+esc(srcVal)+'">'+esc(srcVal||'—')+'</span>';
+      const st=creatorStatus(r); const miss = st!=='ok' ? ' miss-'+st : '';
       return '<div class="trow creators-cols'+miss+'">'+
         '<div class="tcell strong copyable asset" data-copy="'+esc(label)+'" title="'+esc(label)+' — click to copy">'+esc(label)+'</div>'+
         '<div class="tcell">'+srcBadge+'</div>'+
