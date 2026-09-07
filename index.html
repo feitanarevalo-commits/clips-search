@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creators-serverside-v18 -->
+  <!-- build: creator-assetnote-v19 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -135,6 +135,12 @@
     .creators-cols{grid-template-columns:minmax(150px,1.7fr) minmax(105px,1.2fr) minmax(140px,1.5fr) minmax(95px,1fr) minmax(180px,1.7fr) minmax(120px,1.3fr) minmax(82px,1fr) minmax(82px,1fr); min-width:1060px}
     .creators-cols .tcell{overflow:visible; white-space:normal; overflow-wrap:anywhere}
     .trow.creators-cols{align-items:start}
+    .cinfo{background:var(--accent-soft); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-bottom:14px}
+    .cinfo-h{font:700 12px 'Plus Jakarta Sans',sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--accent-2); margin-bottom:9px; display:flex; align-items:center; gap:9px}
+    .cinfo-tag{font:700 9.5px 'Plus Jakarta Sans',sans-serif; letter-spacing:.04em; background:var(--accent); color:#fff; padding:2px 8px; border-radius:999px}
+    .cinfo-list{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:5px 20px}
+    .cinfo-list li{font-size:12.5px; color:var(--muted)}
+    .cinfo-list li b{color:var(--text); font-weight:600}
     .distri-cols{grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(120px,1.4fr) minmax(70px,.7fr); min-width:930px}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
@@ -222,6 +228,16 @@
     </div>
 
     <div id="tab-creators" hidden>
+      <div class="cinfo">
+        <div class="cinfo-h">Asset Label Format — Agency Clips <span class="cinfo-tag">Updated</span></div>
+        <ul class="cinfo-list">
+          <li>WooGlobe clips — <b>WooGlobe DRM</b></li>
+          <li>DripCape (DC) clips — <b>DripCape DRM</b></li>
+          <li>Colourfuly clips — <b>Colourfuly DRM</b></li>
+          <li>TB Viral clips (RH100121) — <b>TBV DRM</b></li>
+          <li>DOM Media clips — <b>DOM Media DRM</b></li>
+        </ul>
+      </div>
       <div class="search">
         <div class="searchrow">
           <div class="field">
