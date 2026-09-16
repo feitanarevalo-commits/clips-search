@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-claimant-v29 -->
+  <!-- build: partner-nameDrop-v30 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -153,12 +153,17 @@
     .pcf.full{grid-column:1 / -1}
     .pcf input,.pcf textarea{font:400 13px system-ui,sans-serif; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); resize:vertical}
     .pcf input:focus,.pcf textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); outline:none}
-    .pcmrow{margin:2px 0 0}
-    .pclink{background:none; border:none; color:var(--accent-2); font:600 11.5px 'Plus Jakarta Sans',sans-serif; cursor:pointer; padding:2px 0; text-decoration:underline}
-    .pcmanage{border:1px solid var(--line); border-radius:9px; padding:7px; margin:5px 0; max-height:170px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:6px; background:var(--card)}
-    .pcmitem{display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); border-radius:999px; padding:3px 4px 3px 10px; font-size:12px; color:var(--text)}
-    .pcmx{background:none; border:none; color:var(--bad); cursor:pointer; font-size:11px; line-height:1; padding:2px 5px; border-radius:50%}
-    .pcmx:hover{background:var(--accent-soft)}
+    .pcname-wrap{position:relative}
+    .pcname-lbl{font:600 12px 'Plus Jakarta Sans',sans-serif; color:var(--muted); margin-bottom:5px}
+    .pcname-wrap > input{width:100%; box-sizing:border-box; font:400 13px system-ui,sans-serif; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text)}
+    .pcname-wrap > input:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); outline:none}
+    .pcnamedrop{position:absolute; left:0; right:0; top:100%; margin-top:4px; z-index:30; background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); max-height:220px; overflow-y:auto; padding:4px}
+    .pcnameitem{display:flex; align-items:center; gap:6px}
+    .pcnamepick{flex:1; text-align:left; background:none; border:none; color:var(--text); font-size:13px; padding:7px 10px; border-radius:7px; cursor:pointer}
+    .pcnamepick:hover{background:var(--accent-soft)}
+    .pcnamex{flex:none; background:none; border:none; color:var(--bad); cursor:pointer; font-size:12px; padding:6px 9px; border-radius:7px}
+    .pcnamex:hover{background:var(--bad); color:#fff}
+    .pcnamenew{color:var(--faint); font-size:12px; padding:8px 10px}
     .pcnotes{margin-top:6px; border:1px solid var(--line); border-radius:9px; padding:2px 12px; background:var(--card)}
     .pcnotes summary{cursor:pointer; font:600 12px 'Plus Jakarta Sans',sans-serif; color:var(--muted); padding:8px 0; list-style:none}
     .pcnotes summary::-webkit-details-marker{display:none}
@@ -342,11 +347,11 @@
       <h2 id="pcEditTitle"></h2>
       <p class="mnote">Saved to the search database and logged in the channel's history.</p>
       <div id="pcEditForm" class="pcgrid"></div>
-      <label>Claimant name <span style="font-weight:400">(select or type — recorded in history &amp; set as MC Team)</span>
-        <input type="text" id="pcEditor" list="pcEditorList" placeholder="Select or type the claimant name" autocomplete="off">
-        <datalist id="pcEditorList"></datalist></label>
-      <div class="pcmrow"><button type="button" id="pcManageBtn" class="pclink">Manage names</button></div>
-      <div id="pcManageList" class="pcmanage" hidden></div>
+      <div class="pcname-wrap">
+        <div class="pcname-lbl">Claimant name <span style="font-weight:400">(select or type — recorded in history &amp; set as MC Team; ✕ removes a name)</span></div>
+        <input type="text" id="pcEditor" placeholder="Select or type the claimant name" autocomplete="off">
+        <div id="pcNameDrop" class="pcnamedrop" hidden></div>
+      </div>
       <details id="pcNotesWrap" class="pcnotes">
         <summary>Notes</summary>
         <textarea id="pcNotes" rows="3" placeholder="Add notes…"></textarea>
@@ -924,9 +929,6 @@
     // ---- Edit a channel (password-gated once per session; every change is logged) ----
     function pcRow(pk){ return distriData && distriData.find(r=>r.pk===pk); }
     function setPcStatus(m,cls){ const s=$('pcEditStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
-    function renderClaimantList(){
-      $('pcEditorList').innerHTML = claimantNames.map(n=>'<option value="'+esc(n)+'"></option>').join('');
-    }
     function renderPcForm(vals){
       $('pcEditForm').innerHTML = PFIELDS.map(f=>
         '<label class="pcf'+(f.full?' full':'')+'">'+esc(f.label)+'<input data-k="'+f.k+'" type="text"></label>').join('');
@@ -934,34 +936,38 @@
       // Notes (collapsible, at the very bottom) — auto-open if it already has content
       const notes=(vals&&vals.notes)||'';
       $('pcNotes').value=notes; $('pcNotesWrap').open = !!notes.trim();
-      renderClaimantList();
-      $('pcManageList').hidden=true; $('pcEditor').value='';
+      $('pcEditor').value=''; hideNameDrop();
       setPcStatus('','');
       $('pcEditModal').removeAttribute('hidden');
-      setTimeout(()=>$('pcEditor').focus(),30);
+      setTimeout(()=>{ const first=$('pcEditForm').querySelector('input'); if(first) first.focus(); },30);
     }
-    // ---- Manage claimant names (remove) ----
-    $('pcManageBtn').addEventListener('click', ()=>{
-      const box=$('pcManageList');
-      if(!box.hidden){ box.hidden=true; return; }
-      box.innerHTML = claimantNames.length
-        ? claimantNames.map(n=>'<div class="pcmitem"><span>'+esc(n)+'</span><button type="button" class="pcmx" data-rm="'+esc(n)+'" title="Remove">✕</button></div>').join('')
-        : '<div class="pcempty" style="padding:8px">No names yet.</div>';
-      box.hidden=false;
+    // ---- Claimant-name combobox: type/select from the list; each row has an ✕ to remove the name ----
+    function renderNameDrop(){
+      const q=$('pcEditor').value.trim().toLowerCase();
+      const list=claimantNames.filter(n=>!q || n.toLowerCase().includes(q));
+      $('pcNameDrop').innerHTML = list.length
+        ? list.map(n=>'<div class="pcnameitem"><button type="button" class="pcnamepick" data-pick="'+esc(n)+'">'+esc(n)+'</button>'+
+            '<button type="button" class="pcnamex" data-rmname="'+esc(n)+'" title="Remove this name from the list">✕</button></div>').join('')
+        : '<div class="pcnamenew">'+(q?'No match — type to add a new name':'No names yet')+'</div>';
+    }
+    function showNameDrop(){ renderNameDrop(); $('pcNameDrop').hidden=false; }
+    function hideNameDrop(){ if($('pcNameDrop')) $('pcNameDrop').hidden=true; }
+    $('pcEditor').addEventListener('focus', showNameDrop);
+    $('pcEditor').addEventListener('input', showNameDrop);
+    $('pcNameDrop').addEventListener('mousedown', async e=>{
+      const pick=e.target.closest('[data-pick]');
+      if(pick){ e.preventDefault(); $('pcEditor').value=pick.dataset.pick; hideNameDrop(); return; }
+      const rm=e.target.closest('[data-rmname]');
+      if(rm){ e.preventDefault(); const name=rm.dataset.rmname; rm.disabled=true;
+        try{
+          const res=await fetch(PARTNER_EDIT_FN,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' },
+            body: JSON.stringify({ remove_claimant:name }) });
+          if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error||('HTTP '+res.status)); }
+          claimantNames=claimantNames.filter(n=>n!==name); renderNameDrop(); showToast('Removed '+name);
+        }catch(err){ rm.disabled=false; showToast('Remove failed'); }
+      }
     });
-    $('pcManageList').addEventListener('click', async e=>{
-      const b=e.target.closest('[data-rm]'); if(!b) return;
-      const name=b.dataset.rm; b.disabled=true;
-      try{
-        const res=await fetch(PARTNER_EDIT_FN,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' },
-          body: JSON.stringify({ remove_claimant:name }) });
-        if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error||('HTTP '+res.status)); }
-        claimantNames=claimantNames.filter(n=>n!==name);
-        renderClaimantList();
-        b.closest('.pcmitem').remove();
-        showToast('Removed '+name);
-      }catch(err){ b.disabled=false; showToast('Remove failed'); }
-    });
+    document.addEventListener('mousedown', e=>{ if(!e.target.closest('.pcname-wrap')) hideNameDrop(); });
     function openPartnerEdit(pk){
       const r=pcRow(pk); if(!r) return; pcEditPk=pk; pcMode='edit';
       $('pcEditTitle').textContent = 'Edit — '+(r.channel_name || r.asset_label || 'channel');
