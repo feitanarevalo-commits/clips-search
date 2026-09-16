@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-editable-v22 -->
+  <!-- build: partner-fullload-v23 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -801,7 +801,7 @@
     });
 
     // ===== Virals Partner Channels tab (Supabase-backed, editable + per-row history) =====
-    const PARTNER_URL     = SUPABASE_URL + '/rest/v1/partner_channels';
+    const PARTNER_ALL     = SUPABASE_URL + '/rest/v1/rpc/all_partner_channels';   // returns ALL rows (bypasses the 1000-row cap)
     const PARTNER_HIST    = SUPABASE_URL + '/rest/v1/partner_channels_history';
     const PARTNER_EDIT_FN = SUPABASE_URL + '/functions/v1/edit_partner_channel';
     const PFIELDS = [
@@ -827,7 +827,7 @@
       dstatus.textContent='Loading partner channels…';
       dresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
       try{
-        const res=await fetch(PARTNER_URL+'?select=*&order=channel_name.asc&limit=5000',{ headers:HEADERS, cache:'no-store' });
+        const res=await fetch(PARTNER_ALL,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' }, body:'{}', cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
         ingestDistri(await res.json());
       }catch(e){ dstatus.textContent='Could not load partner channels: '+e.message; dresults.innerHTML=''; }
