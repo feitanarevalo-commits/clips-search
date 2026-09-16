@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-addrequired-v37 -->
+  <!-- build: partner-vvvfallback-v38 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1045,7 +1045,10 @@
         const raw=e.target.value.trim(), m=raw.toUpperCase().match(/VVV\d+/);
         if(m){
           const nameEl=$('pcEditForm').querySelector('[data-k="vvv_name"]');
-          if(nameEl && vvvNameMap[m[0]]) nameEl.value=vvvNameMap[m[0]];
+          if(nameEl){
+            if(vvvNameMap[m[0]]) nameEl.value=vvvNameMap[m[0]];              // known VVV Name
+            else if(!nameEl.value.trim() || /^VVV\d+$/i.test(nameEl.value.trim())) nameEl.value=m[0]; // no name on file -> use the VVV ID
+          }
           if(/^VVV\d+$/i.test(raw) && assetFullByVvv[m[0]] && assetFullByVvv[m[0]].toUpperCase()!==raw.toUpperCase()){
             e.target.value=assetFullByVvv[m[0]];                          // e.g. "VVV074" -> "VVV074 | CSMC81"
           }
