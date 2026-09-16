@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-nostatus-v33 -->
+  <!-- build: partner-delete-v34 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -143,7 +143,11 @@
     .cinfo-list li b.drm{font-weight:700; color:var(--accent-2); background:var(--card); border:1px solid var(--accent-soft);
       border-radius:6px; padding:2px 9px; cursor:pointer; transition:background .12s,border-color .12s,color .12s}
     .cinfo-list li b.drm:hover{background:var(--accent); color:#fff; border-color:var(--accent)}
-    .distri-cols{grid-template-columns:minmax(120px,1.3fr) minmax(120px,1.3fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(120px,1.4fr) minmax(190px,1.4fr); min-width:930px}
+    .distri-cols{grid-template-columns:minmax(120px,1.3fr) minmax(120px,1.3fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(110px,1.3fr) minmax(250px,1.9fr); min-width:1000px}
+    .pact.del{color:var(--bad)}
+    .pact.del:hover{border-color:var(--bad); background:rgba(239,68,68,.12)}
+    .btn.danger{background:var(--bad); color:#fff; border-color:var(--bad)}
+    .btn.danger:hover{filter:brightness(1.08)}
     .pactions{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
     .pact{font:600 12px 'Plus Jakarta Sans',sans-serif; padding:4px 10px; border-radius:7px; border:1px solid var(--line); background:var(--card); color:var(--accent-2); cursor:pointer; text-decoration:none; white-space:nowrap}
     .pact:hover{border-color:var(--accent); background:var(--accent-soft)}
@@ -370,6 +374,19 @@
       <button class="modal-x" id="pcHistClose">✕</button>
       <h2>History — <span id="pcHistTitle"></span></h2>
       <div id="pcHistBody" class="pchbody"></div>
+    </div>
+  </div>
+
+  <!-- delete partner channel modal (admin only) -->
+  <div class="modal" id="pcDelModal" hidden>
+    <div class="modal-card">
+      <button class="modal-x" id="pcDelClose">✕</button>
+      <h2>Delete channel</h2>
+      <p class="mnote">Permanently remove <b id="pcDelName"></b> and its history. This can’t be undone. Admin only.</p>
+      <label id="pcDelPwWrap">Admin password
+        <input type="password" id="pcDelPw" placeholder="Required to delete" autocomplete="off"></label>
+      <div class="mprogress" id="pcDelStatus"></div>
+      <div class="mactions"><button class="btn" id="pcDelCancel">Cancel</button><button class="btn danger" id="pcDelConfirm">Delete channel</button></div>
     </div>
   </div>
 
@@ -937,6 +954,7 @@
         '<div class="tcell pactions">'+view+
           '<button class="pact edit" data-edit="'+r.pk+'">Edit</button>'+
           '<button class="pact hist" data-hist="'+r.pk+'">History</button>'+
+          '<button class="pact del" data-del="'+r.pk+'">Delete</button>'+
         '</div>'+
       '</div>';
     }
@@ -945,6 +963,7 @@
       if(cp && cp.dataset.copy){ copyText(cp.dataset.copy); cp.style.color='var(--good)'; setTimeout(()=>cp.style.color='',800); return; }
       const ed=e.target.closest('[data-edit]'); if(ed){ openPartnerEdit(+ed.dataset.edit); return; }
       const hi=e.target.closest('[data-hist]'); if(hi){ openPartnerHistory(+hi.dataset.hist); return; }
+      const de=e.target.closest('[data-del]'); if(de){ openPartnerDelete(+de.dataset.del); return; }
     });
 
     // ---- Edit a channel (password-gated once per session; every change is logged) ----
@@ -1094,6 +1113,41 @@
     }
     $('pcHistClose').addEventListener('click', ()=>$('pcHistModal').setAttribute('hidden',''));
     $('pcHistModal').addEventListener('click', e=>{ if(e.target.id==='pcHistModal') $('pcHistModal').setAttribute('hidden',''); });
+
+    // ---- Delete a channel (admin password required; MC2026) ----
+    let adminPw='', pcDelPk=null;
+    function setDelStatus(m,cls){ const s=$('pcDelStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
+    function openPartnerDelete(pk){
+      const r=pcRow(pk); if(!r) return; pcDelPk=pk;
+      $('pcDelName').textContent = r.channel_name || r.asset_label || 'this channel';
+      $('pcDelPwWrap').style.display = adminPw ? 'none' : '';
+      $('pcDelPw').value=''; setDelStatus('');
+      $('pcDelModal').removeAttribute('hidden');
+      setTimeout(()=>$(adminPw?'pcDelConfirm':'pcDelPw').focus(),30);
+    }
+    function closePartnerDelete(){ $('pcDelModal').setAttribute('hidden',''); }
+    async function confirmPartnerDelete(){
+      const pw = adminPw || $('pcDelPw').value.trim();
+      if(!pw){ setDelStatus('Enter the admin password.','err'); return; }
+      $('pcDelConfirm').disabled=true; setDelStatus('Deleting…');
+      try{
+        const res=await fetch(PARTNER_EDIT_FN,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' },
+          body: JSON.stringify({ delete_pk:pcDelPk, admin_password:pw }) });
+        const j=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
+        adminPw=pw;                                                          // remember for this session
+        distriData = distriData.filter(x=>x.pk!==pcDelPk);
+        runDistri();
+        closePartnerDelete();
+        showToast('Channel deleted');
+      }catch(e){ setDelStatus(e.message, 'err'); }
+      $('pcDelConfirm').disabled=false;
+    }
+    $('pcDelConfirm').addEventListener('click', confirmPartnerDelete);
+    $('pcDelCancel').addEventListener('click', closePartnerDelete);
+    $('pcDelClose').addEventListener('click', closePartnerDelete);
+    $('pcDelModal').addEventListener('click', e=>{ if(e.target.id==='pcDelModal') closePartnerDelete(); });
+    $('pcDelPw').addEventListener('keydown', e=>{ if(e.key==='Enter') confirmPartnerDelete(); });
   </script>
 </body>
 </html>
