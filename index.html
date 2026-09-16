@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-nameDrop-v30 -->
+  <!-- build: partner-vvvname-v31 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -851,7 +851,14 @@
 
     const PHAY_KEYS=['channel_name','vvv_name','asset_label','channel_url','status','mc_team','date_text','notes'];
     function phay(r){ return PHAY_KEYS.map(k=>r[k]||'').join(' ').toLowerCase(); }
-    function ingestDistri(rows){ distriData = rows.map(r=>{ r._hay=phay(r); return r; }); runDistri(); }
+    let vvvNameMap = {};   // VVV code (e.g. "VVV074") -> its VVV Name, from the existing data
+    function ingestDistri(rows){
+      distriData = rows.map(r=>{ r._hay=phay(r); return r; });
+      vvvNameMap = {};
+      distriData.forEach(r=>{ const name=(r.vvv_name||'').trim(); if(!name) return;
+        const m=(r.asset_label||'').toUpperCase().match(/VVV\d+/); if(m && !vvvNameMap[m[0]]) vvvNameMap[m[0]]=name; });
+      runDistri();
+    }
     async function initDistri(force){
       if(distriLoading) return;
       if(!force && distriData) return;
@@ -968,6 +975,13 @@
       }
     });
     document.addEventListener('mousedown', e=>{ if(!e.target.closest('.pcname-wrap')) hideNameDrop(); });
+    // auto-fill VVV Name from the VVV ID / Asset Label as it's typed (both Add and Edit)
+    $('pcEditForm').addEventListener('input', e=>{
+      if(e.target.getAttribute('data-k')!=='asset_label') return;
+      const m=e.target.value.toUpperCase().match(/VVV\d+/);
+      const nameEl=$('pcEditForm').querySelector('[data-k="vvv_name"]');
+      if(nameEl && m && vvvNameMap[m[0]]) nameEl.value=vvvNameMap[m[0]];
+    });
     function openPartnerEdit(pk){
       const r=pcRow(pk); if(!r) return; pcEditPk=pk; pcMode='edit';
       $('pcEditTitle').textContent = 'Edit — '+(r.channel_name || r.asset_label || 'channel');
