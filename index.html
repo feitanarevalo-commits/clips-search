@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-addbtn-v24 -->
+  <!-- build: partner-export-v25 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -285,6 +285,9 @@
           </div>
           <button class="hbtn" id="dadd" title="Add a new channel" style="height:56px; white-space:nowrap; gap:6px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:18px;height:18px"><path d="M12 5v14M5 12h14"/></svg>Add
+          </button>
+          <button class="hbtn" id="dexport" title="Download the shown channels as a CSV" style="height:56px; white-space:nowrap; gap:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Export
           </button>
         </div>
         <div class="statusrow" id="dstatus">Loading partner channels…</div>
@@ -838,16 +841,38 @@
     dclear.addEventListener('click', () => { dq.value=''; dclear.style.display='none'; dq.focus(); runDistri(); });
     $('dadd').addEventListener('click', openPartnerAdd);
 
+    function filteredDistri(){
+      if(!distriData) return [];
+      const raw=dq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
+      if(!raw) return distriData;
+      const qn=ncode(raw.replace(/\([^)]*\)/g,' '));
+      return distriData.filter(r=> r._hay.indexOf(raw)!==-1 || (qn.length>=2 && ncode(r.asset_label||'').indexOf(qn)!==-1));
+    }
     function runDistri(){
       if(!distriData) return;
-      const raw=dq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
-      const qn=ncode(raw.replace(/\([^)]*\)/g,' '));
-      let rows=distriData;
-      if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 || (qn.length>=2 && ncode(r.asset_label||'').indexOf(qn)!==-1));
+      const rows=filteredDistri();
       const shown=rows.slice(0,300);
       dstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+distriData.length.toLocaleString()+' channels'+(rows.length>300?' · showing first 300':'');
-      dresults.innerHTML = shown.length ? (distriHeader()+shown.map(distriRow).join('')) : emptyState(raw||'that search');
+      dresults.innerHTML = shown.length ? (distriHeader()+shown.map(distriRow).join('')) : emptyState(dq.value.trim()||'that search');
     }
+    // ---- Export to CSV (respects the current search; exports ALL matches, not just the shown 300) ----
+    function csvCell(v){ v=(v==null?'':String(v)); return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+    function exportPartners(){
+      const rows=filteredDistri();
+      if(!rows.length){ showToast('Nothing to export'); return; }
+      const header=['ASSET LABEL','VVV NAME','CHANNEL NAME','CHANNEL URL','STATUS','MC TEAM','DATE','NOTES'];
+      const keys=['asset_label','vvv_name','channel_name','channel_url','status','mc_team','date_text','notes'];
+      const lines=[header.map(csvCell).join(',')];
+      rows.forEach(r=> lines.push(keys.map(k=>csvCell(r[k])).join(',')));
+      const blob=new Blob(['﻿'+lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url;
+      a.download='virals_partner_channels_'+new Date().toISOString().slice(0,10)+'.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1500);
+      showToast('Exported '+rows.length.toLocaleString()+' channel'+(rows.length===1?'':'s'));
+    }
+    $('dexport').addEventListener('click', exportPartners);
     function distriHeader(){
       return '<div class="thead distri-cols"><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>Status</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Actions</div></div>';
     }
