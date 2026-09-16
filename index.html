@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-vidfull-v35 -->
+  <!-- build: partner-histtimeline-v36 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -187,6 +187,23 @@
     .pchdiff{font-size:12.5px; color:var(--muted); word-break:break-word}
     .pchold{color:var(--bad); text-decoration:line-through; opacity:.8}
     .pchnew{color:var(--good); font-weight:600}
+    /* append-only timeline (oldest → newest, latest at bottom) */
+    .pctl{position:relative; padding:4px 2px 2px}
+    .pctl-item{position:relative; display:grid; grid-template-columns:28px 1fr; column-gap:12px; padding-bottom:16px}
+    .pctl-item:last-child{padding-bottom:2px}
+    .pctl-item:not(:last-child)::before{content:''; position:absolute; left:13px; top:28px; bottom:-2px; width:2px; background:var(--line)}
+    .pctl-dot{width:28px; height:28px; border-radius:50%; background:var(--card); border:1px solid var(--line); display:grid; place-items:center; font-size:13px; color:var(--accent,#7c9cff); z-index:1}
+    .pctl-card{border:1px solid var(--line); border-radius:10px; padding:9px 12px; background:var(--card)}
+    .pctl-title{font-size:13px; color:var(--muted)}
+    .pctl-title b{color:var(--text); font-weight:700}
+    .pctl-time{color:var(--faint); font-size:11px; margin-top:2px}
+    .pctl-diff{display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-top:8px}
+    .pctl-old,.pctl-new{display:inline-block; padding:2px 9px; border-radius:7px; border:1px solid var(--line); font-size:12px; word-break:break-word}
+    .pctl-old{color:var(--bad); text-decoration:line-through; opacity:.75}
+    .pctl-new{color:var(--good); font-weight:600}
+    .pctl-arw{color:var(--faint); font-size:13px}
+    .pctl-foot{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); color:var(--faint); font-size:11.5px; text-align:center}
+    .pctl-lock{margin-right:4px}
     .pcempty{color:var(--faint); font-size:13px; padding:14px 2px; text-align:center}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
@@ -1102,15 +1119,31 @@
       $('pcHistBody').innerHTML='<div class="mprogress">Loading history…</div>';
       $('pcHistModal').removeAttribute('hidden');
       try{
-        const res=await fetch(PARTNER_HIST+'?channel_pk=eq.'+pk+'&order=edited_at.desc&limit=200',{ headers:HEADERS, cache:'no-store' });
+        const res=await fetch(PARTNER_HIST+'?channel_pk=eq.'+pk+'&order=edited_at.asc&order=id.asc&limit=500',{ headers:HEADERS, cache:'no-store' });
         const rows=await res.json();
-        if(!rows.length){ $('pcHistBody').innerHTML='<div class="pcempty">No edits recorded yet.</div>'; return; }
-        $('pcHistBody').innerHTML = rows.map(h=>{
-          const when=new Date(h.edited_at).toLocaleString();
-          return '<div class="pchrow"><div class="pchtop"><b>'+esc(PLABEL[h.field]||h.field)+'</b>'+
-            '<span class="pchby">'+esc(h.edited_by||'—')+' · '+esc(when)+'</span></div>'+
-            '<div class="pchdiff"><span class="pchold">'+esc(h.old_value||'(empty)')+'</span> → <span class="pchnew">'+esc(h.new_value||'(empty)')+'</span></div></div>';
+        if(!rows.length){ $('pcHistBody').innerHTML='<div class="pcempty">No history yet.</div>'; return; }
+        const items = rows.map(h=>{
+          const when=new Date(h.edited_at).toLocaleString([], {year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+          const by=esc(h.edited_by||'—');
+          let icon='✎', title, diff='';
+          if(h.field==='(created)'){
+            icon='＋';
+            title='<b>'+by+'</b> added this channel';
+            if((h.new_value||'').trim()) diff='<span class="pctl-new">'+esc(h.new_value)+'</span>';
+          } else {
+            const label=esc(PLABEL[h.field]||h.field);
+            const nv=(h.new_value||'').trim();
+            title='<b>'+by+'</b> '+(nv?'updated':'cleared')+' '+label;
+            diff='<span class="pctl-old">'+esc(h.old_value||'—')+'</span><span class="pctl-arw">→</span><span class="pctl-new">'+esc(h.new_value||'—')+'</span>';
+          }
+          return '<div class="pctl-item"><div class="pctl-dot">'+icon+'</div><div class="pctl-card">'+
+            '<div class="pctl-title">'+title+'</div>'+
+            '<div class="pctl-time">'+esc(when)+'</div>'+
+            (diff?'<div class="pctl-diff">'+diff+'</div>':'')+'</div></div>';
         }).join('');
+        $('pcHistBody').innerHTML='<div class="pctl">'+items+'</div>'+
+          '<div class="pctl-foot"><span class="pctl-lock">🔒</span> Append-only · '+rows.length+' event'+(rows.length===1?'':'s')+' recorded</div>';
+        $('pcHistBody').scrollTop = $('pcHistBody').scrollHeight;
       }catch(e){ $('pcHistBody').innerHTML='<div class="pcempty">Could not load history: '+esc(e.message)+'</div>'; }
     }
     $('pcHistClose').addEventListener('click', ()=>$('pcHistModal').setAttribute('hidden',''));
