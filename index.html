@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: creator-note-compact-v21 -->
+  <!-- build: partner-editable-v22 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -143,7 +143,25 @@
     .cinfo-list li b.drm{font-weight:700; color:var(--accent-2); background:var(--card); border:1px solid var(--accent-soft);
       border-radius:6px; padding:2px 9px; cursor:pointer; transition:background .12s,border-color .12s,color .12s}
     .cinfo-list li b.drm:hover{background:var(--accent); color:#fff; border-color:var(--accent)}
-    .distri-cols{grid-template-columns:minmax(120px,1.4fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(120px,1.4fr) minmax(70px,.7fr); min-width:930px}
+    .distri-cols{grid-template-columns:minmax(120px,1.3fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(110px,1.3fr) minmax(190px,1.4fr); min-width:1010px}
+    .pactions{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+    .pact{font:600 12px 'Plus Jakarta Sans',sans-serif; padding:4px 10px; border-radius:7px; border:1px solid var(--line); background:var(--card); color:var(--accent-2); cursor:pointer; text-decoration:none; white-space:nowrap}
+    .pact:hover{border-color:var(--accent); background:var(--accent-soft)}
+    .pact.off{opacity:.4; cursor:default}
+    .pcgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-bottom:4px}
+    .pcf{display:flex; flex-direction:column; gap:5px; font:600 12px 'Plus Jakarta Sans',sans-serif; color:var(--muted)}
+    .pcf.full{grid-column:1 / -1}
+    .pcf input,.pcf textarea{font:400 13px system-ui,sans-serif; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); resize:vertical}
+    .pcf input:focus,.pcf textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); outline:none}
+    .pchbody{max-height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:4px}
+    .pchrow{border:1px solid var(--line); border-radius:9px; padding:9px 12px; background:var(--card)}
+    .pchtop{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:4px}
+    .pchtop b{color:var(--text); font-size:12.5px}
+    .pchby{color:var(--faint); font-size:11px; white-space:nowrap}
+    .pchdiff{font-size:12.5px; color:var(--muted); word-break:break-word}
+    .pchold{color:var(--bad); text-decoration:line-through; opacity:.8}
+    .pchnew{color:var(--good); font-weight:600}
+    .pcempty{color:var(--faint); font-size:13px; padding:14px 2px; text-align:center}
     .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px}
     .btn{font:600 13px 'Plus Jakarta Sans',sans-serif; border-radius:9px; padding:8px 13px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--bg2); color:var(--text); transition:.12s}
     .btn:hover{border-color:var(--line-hi)}
@@ -284,6 +302,7 @@
         <select id="impTarget">
           <option value="clips">Clips Search</option>
           <option value="creators">Creator Search</option>
+          <option value="partner_channels">Virals Partner Channels</option>
         </select></label>
       <label id="impModeWrap">Update mode
         <select id="impMode">
@@ -297,6 +316,31 @@
       <div class="mnote" id="impDetected" style="margin-top:-4px"></div>
       <div class="mprogress" id="impStatus"></div>
       <div class="mactions"><button class="btn" id="impCancel">Cancel</button><button class="btn primary" id="impRun">Import</button></div>
+    </div>
+  </div>
+
+  <!-- edit partner channel modal -->
+  <div class="modal" id="pcEditModal" hidden>
+    <div class="modal-card">
+      <button class="modal-x" id="pcEditClose">✕</button>
+      <h2>Edit channel — <span id="pcEditTitle"></span></h2>
+      <p class="mnote">Changes are saved to the search database and logged in this channel's history.</p>
+      <div id="pcEditForm" class="pcgrid"></div>
+      <label>Your name / initials <span style="font-weight:400">(recorded in history)</span>
+        <input type="text" id="pcEditor" placeholder="e.g. Ron" autocomplete="off"></label>
+      <label id="pcEditPwWrap">Edit password
+        <input type="password" id="pcEditPw" placeholder="Required to save" autocomplete="off"></label>
+      <div class="mprogress" id="pcEditStatus"></div>
+      <div class="mactions"><button class="btn" id="pcEditCancel">Cancel</button><button class="btn primary" id="pcEditSave">Save changes</button></div>
+    </div>
+  </div>
+
+  <!-- partner channel history modal -->
+  <div class="modal" id="pcHistModal" hidden>
+    <div class="modal-card">
+      <button class="modal-x" id="pcHistClose">✕</button>
+      <h2>History — <span id="pcHistTitle"></span></h2>
+      <div id="pcHistBody" class="pchbody"></div>
     </div>
   </div>
 
@@ -429,9 +473,12 @@
       const isClips = $('impTarget').value==='clips', mode=$('impMode').value;
       $('impModeWrap').style.display = isClips ? '' : 'none';   // creators = replace only
       $('impFileLabel').querySelector('span').style.display = isClips ? '' : 'none';
+      const t=$('impTarget').value;
       let note;
-      if(!isClips){
+      if(t==='creators'){
         note='Creator Search is a full snapshot of the sheet — importing REPLACES the whole creator list with your file. Export the MC sheet as CSV; its messy multi-line header is handled automatically.';
+      } else if(t==='partner_channels'){
+        note='Virals Partner Channels: your CSV is added/updated by channel — existing channels updated, new ones added, nothing removed (so your in-tool edits are preserved). Columns are read by position: Asset Label, VVV Name, Channel Name, Channel URL, Status, MC Team, Date, Notes.';
       } else if(mode==='replace'){
         note='Replace: your file(s) become the source of truth — clips not in a file are removed from that file’s dataset (only after it uploads successfully). Select one or both clips CSVs; the dataset (new / legacy) is detected from each file name. Header: code (required); optional title, dropbox_url, r2_url, hide_status, onboarded_status.';
       } else {
@@ -449,7 +496,7 @@
     async function importFileText(text, { target, mode, dataset, pass, label }){
       const token = mode==='replace' ? ('imp-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)) : '';
       const base = { target, mode, dataset, import_token: token };
-      const SIZE = 2000, isClips = target!=='creators';
+      const SIZE = 2000, isClips = target==='clips';
       if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);
       let batch=[], done=0, header=null, rowIdx=0;
       async function sendBatch(){
@@ -466,9 +513,14 @@
         if(isClips){
           if(fields.length===1 && (fields[0]==null || fields[0].trim()==='')) return false;   // blank line
           obj={}; for(let j=0;j<header.length;j++) obj[header[j]]=fields[j];
-        } else {                                                // creators: map by column position
+        } else if(target==='creators'){                         // creators: map by column position
           const c=fields;
           obj={ creator:c[0], asset_label:c[1], cs_code:c[2], vrl_code:c[3], status:c[4], remarks:c[5], source:c[6], qa_code:c[8], ing_code:c[9] };
+          let any=false; for(const k in obj){ if(obj[k]!=null && String(obj[k]).trim()!==''){ any=true; break; } }
+          if(!any) return false;
+        } else {                                                // partner_channels: map by column position
+          const c=fields;                                       // 0 asset,1 vvv_name,2 channel,3 url,4 status,5 team,6 date,7 notes
+          obj={ asset_label:c[0], vvv_name:c[1], channel_name:c[2], channel_url:c[3], status:c[4], mc_team:c[5], date_text:c[6], notes:c[7] };
           let any=false; for(const k in obj){ if(obj[k]!=null && String(obj[k]).trim()!==''){ any=true; break; } }
           if(!any) return false;
         }
@@ -499,14 +551,14 @@
 
     async function runImport(){
       const target=$('impTarget').value;
-      const mode = target==='creators' ? 'replace' : $('impMode').value;
+      const mode = target==='creators' ? 'replace' : (target==='partner_channels' ? 'merge' : $('impMode').value);
       const pass=$('impPass').value.trim();
       const files=[...$('impFile').files];
       if(!pass){ setImp('Enter the import passphrase.','err'); return; }
       if(!files.length){ setImp('Choose a CSV file.','err'); return; }
 
-      // creators = one snapshot from a single file; clips = one or more files, dataset auto-detected per file
-      const jobs = target==='creators'
+      // creators / partner = one file (no dataset); clips = one or more files, dataset auto-detected per file
+      const jobs = (target==='creators' || target==='partner_channels')
         ? [{ file: files[0], dataset: '' }]
         : files.map(f => ({ file: f, dataset: detectDataset(f.name) }));
 
@@ -523,10 +575,11 @@
       }catch(e){ failed=true; setImp('Import failed: '+e.message+(mode==='replace'?' — old data kept where not finalized.':''), 'err'); }
       $('impRun').disabled = false;
       if(failed) return;
-      const noun = target==='creators' ? 'creator' : 'clip';
+      const noun = target==='creators' ? 'creator' : (target==='partner_channels' ? 'channel' : 'clip');
       setImp('✓ Done — '+total.toLocaleString()+' '+noun+' row'+(total===1?'':'s')+' from '+jobs.length+' file'+(jobs.length===1?'':'s')+(mode==='replace'?' (replaced).':' (added / updated).'), 'ok');
       showToast('Imported '+total.toLocaleString()+' '+noun+' rows');
       if(target==='creators'){ initCreators(true); }
+      else if(target==='partner_channels'){ initDistri(true); }
       else { loadTotal(); loadFilters(); run(); }
     }
 
@@ -747,76 +800,143 @@
       copyText(el.dataset.copy);
     });
 
-    // ===== Distri Partner tab (live from Google Sheet, all VVV tabs merged) =====
-    const DISTRI_FEED = 'https://script.google.com/macros/s/AKfycbx8WlF8YKrdUjUufY3ArUnZCKKEtpIpkXaC6SF1vDg1kssd92tGNyBR9uQxpKN_L7b_ew/exec';
-    const DK = { id:'VVV ID', name:'VVV NAME', channel:'CHANNEL NAME', url:'CHANNEL URL', status:'STATUS PEX', team:'MC TEAM', tab:'TAB' };
-    let distriData=null, distriLoading=false;
+    // ===== Virals Partner Channels tab (Supabase-backed, editable + per-row history) =====
+    const PARTNER_URL     = SUPABASE_URL + '/rest/v1/partner_channels';
+    const PARTNER_HIST    = SUPABASE_URL + '/rest/v1/partner_channels_history';
+    const PARTNER_EDIT_FN = SUPABASE_URL + '/functions/v1/edit_partner_channel';
+    const PFIELDS = [
+      {k:'channel_name', label:'Channel'},
+      {k:'status',       label:'Status'},
+      {k:'mc_team',      label:'MC Team'},
+      {k:'date_text',    label:'Date'},
+      {k:'notes',        label:'Notes', area:true},
+      {k:'channel_url',  label:'Channel URL'},
+      {k:'vvv_name',     label:'VVV Name'},
+      {k:'asset_label',  label:'VVV ID / Asset Label'},
+    ];
+    const PLABEL = Object.fromEntries(PFIELDS.map(f=>[f.k,f.label]));
+    let distriData=null, distriLoading=false, partnerEditPw='', pcEditPk=null;
     const dq=$('dq'), dstatus=$('dstatus'), dresults=$('dresults'), dclear=$('dclear');
 
-    function ingestDistri(data){
-      distriData=normalizeFeed(data).map(r=>{
-        // search across EVERY field in the row (all sheet details): use the full-row _ALL if the feed provides it, else all values
-        r._hay=(r['_ALL'] || Object.values(r).join(' ')).toString().toLowerCase();
-        r._codes=[ncode(r[DK.id])].filter(Boolean);
-        return r;
-      });
-      runDistri();
-    }
+    function phay(r){ return PFIELDS.map(f=>r[f.k]||'').join(' ').toLowerCase(); }
+    function ingestDistri(rows){ distriData = rows.map(r=>{ r._hay=phay(r); return r; }); runDistri(); }
     async function initDistri(force){
       if(distriLoading) return;
       if(!force && distriData) return;
       distriLoading=true;
-      if(!force){ try{ const c=sessionStorage.getItem('distri_cache'); if(c){ ingestDistri(JSON.parse(c)); distriLoading=false; return; } }catch(e){} }
-      dstatus.textContent='Loading partner channels from the sheet…';
+      dstatus.textContent='Loading partner channels…';
       dresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
       try{
-        const res=await fetch(DISTRI_FEED+(force?'?fresh=1':''), { cache:'no-store' });
-        const data=await res.json();
-        try{ sessionStorage.setItem('distri_cache', JSON.stringify(data)); }catch(e){}
-        ingestDistri(data); showToast('Partner channels updated');
+        const res=await fetch(PARTNER_URL+'?select=*&order=channel_name.asc&limit=5000',{ headers:HEADERS, cache:'no-store' });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        ingestDistri(await res.json());
       }catch(e){ dstatus.textContent='Could not load partner channels: '+e.message; dresults.innerHTML=''; }
       distriLoading=false;
     }
     const debouncedDistri=debounce(runDistri,140);
     dq.addEventListener('input', () => { dclear.style.display=dq.value?'block':'none'; debouncedDistri(); });
     dclear.addEventListener('click', () => { dq.value=''; dclear.style.display='none'; dq.focus(); runDistri(); });
-    $('drefresh').addEventListener('click', () => { try{ sessionStorage.removeItem('distri_cache'); }catch(e){} initDistri(true); });
+    $('drefresh').addEventListener('click', () => initDistri(true));
 
     function runDistri(){
       if(!distriData) return;
       const raw=dq.value.trim().toLowerCase().replace(/[\s.]+$/,'');
-      const qn=ncode(raw.replace(/\([^)]*\)/g,' ')); // drop (..) suffixes
+      const qn=ncode(raw.replace(/\([^)]*\)/g,' '));
       let rows=distriData;
-      if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 ||
-        (qn.length>=2 && r._codes.some(code => code.indexOf(qn)!==-1 || (code.length>=3 && qn.indexOf(code)===0))));
+      if(raw) rows=rows.filter(r=> r._hay.indexOf(raw)!==-1 || (qn.length>=2 && ncode(r.asset_label||'').indexOf(qn)!==-1));
       const shown=rows.slice(0,300);
       dstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+distriData.length.toLocaleString()+' channels'+(rows.length>300?' · showing first 300':'');
-      if(!shown.length){ dresults.innerHTML=emptyState(raw||'that search'); return; }
-      dresults.innerHTML=distriHeader()+shown.map(distriRow).join('');
+      dresults.innerHTML = shown.length ? (distriHeader()+shown.map(distriRow).join('')) : emptyState(raw||'that search');
     }
     function distriHeader(){
-      return '<div class="thead distri-cols"><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>Status</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Channel URL</div></div>';
+      return '<div class="thead distri-cols"><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>Status</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Actions</div></div>';
     }
     function tc(v, cls){ v=(v==null?'':String(v)).trim(); return '<div class="tcell'+(cls?' '+cls:'')+'" title="'+esc(v)+'">'+esc(v||'—')+'</div>'; }
     function distriRow(r){
-      const url=(r[DK.url]||'').trim();
-      const idv=(r[DK.id]||'').trim();
-      return '<div class="trow distri-cols">'+
+      const url=(r.channel_url||'').trim(), idv=(r.asset_label||'').trim();
+      const view = url ? '<a class="pact" href="'+esc(url)+'" target="_blank" rel="noopener">View ↗</a>' : '<span class="pact off">View</span>';
+      return '<div class="trow distri-cols" data-pk="'+r.pk+'">'+
         '<div class="tcell mono strong copyable" data-copy="'+esc(idv)+'" title="'+esc(idv)+' — click to copy">'+esc(idv||'—')+'</div>'+
-        tc(r[DK.name])+
-        tc(r[DK.channel],'strong')+
-        tc(r[DK.status])+
-        tc(r[DK.team])+
-        tc(r['DATE'])+
-        tc(r['NOTES'])+
-        '<div class="tcell">'+(url?'<a class="cvlink" href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(url)+'">View ↗</a>':'—')+'</div>'+
+        tc(r.vvv_name)+ tc(r.channel_name,'strong')+ tc(r.status)+ tc(r.mc_team)+ tc(r.date_text)+ tc(r.notes)+
+        '<div class="tcell pactions">'+view+
+          '<button class="pact edit" data-edit="'+r.pk+'">Edit</button>'+
+          '<button class="pact hist" data-hist="'+r.pk+'">History</button>'+
+        '</div>'+
       '</div>';
     }
     dresults.addEventListener('click', e => {
-      const el=e.target.closest('[data-copy]'); if(!el || !el.dataset.copy) return;
-      copyText(el.dataset.copy); el.style.color='var(--good)'; setTimeout(()=>el.style.color='', 800);
+      const cp=e.target.closest('[data-copy]');
+      if(cp && cp.dataset.copy){ copyText(cp.dataset.copy); cp.style.color='var(--good)'; setTimeout(()=>cp.style.color='',800); return; }
+      const ed=e.target.closest('[data-edit]'); if(ed){ openPartnerEdit(+ed.dataset.edit); return; }
+      const hi=e.target.closest('[data-hist]'); if(hi){ openPartnerHistory(+hi.dataset.hist); return; }
     });
-    function extIcon(){ return '<svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'; }
+
+    // ---- Edit a channel (password-gated once per session; every change is logged) ----
+    function pcRow(pk){ return distriData && distriData.find(r=>r.pk===pk); }
+    function setPcStatus(m,cls){ const s=$('pcEditStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
+    function openPartnerEdit(pk){
+      const r=pcRow(pk); if(!r) return; pcEditPk=pk;
+      $('pcEditForm').innerHTML = PFIELDS.map(f=>
+        '<label class="pcf'+(f.area?' full':'')+'">'+esc(f.label)+
+        (f.area ? '<textarea data-k="'+f.k+'" rows="2"></textarea>' : '<input data-k="'+f.k+'" type="text">')+'</label>').join('');
+      PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = r[f.k]||''; });
+      $('pcEditTitle').textContent = r.channel_name || r.asset_label || 'channel';
+      $('pcEditPwWrap').style.display = partnerEditPw ? 'none' : '';
+      $('pcEditPw').value=''; setPcStatus('','');
+      $('pcEditModal').removeAttribute('hidden');
+      setTimeout(()=>$('pcEditor').focus(),30);
+    }
+    function closePartnerEdit(){ $('pcEditModal').setAttribute('hidden',''); }
+    async function savePartnerEdit(){
+      const r=pcRow(pcEditPk); if(!r) return;
+      const editor=$('pcEditor').value.trim();
+      if(!editor){ setPcStatus('Enter your name / initials.','err'); return; }
+      const pw = partnerEditPw || $('pcEditPw').value.trim();
+      if(!pw){ setPcStatus('Enter the edit password.','err'); return; }
+      const changes={};
+      PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(!el) return;
+        const nv=el.value.trim(), ov=(r[f.k]||'').trim(); if(nv!==ov) changes[f.k]=nv; });
+      if(!Object.keys(changes).length){ setPcStatus('No changes to save.','err'); return; }
+      $('pcEditSave').disabled=true; setPcStatus('Saving…');
+      try{
+        const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
+          headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-edit-token':pw },
+          body: JSON.stringify({ pk:pcEditPk, changes, edited_by:editor }) });
+        const j=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
+        partnerEditPw=pw;                                                    // remember for this session
+        Object.entries(changes).forEach(([k,v])=>{ r[k]=v||null; }); r._hay=phay(r);
+        runDistri();
+        showToast('Saved '+j.changed+' change'+(j.changed===1?'':'s'));
+        closePartnerEdit();
+      }catch(e){ setPcStatus('Save failed: '+e.message, 'err'); }
+      $('pcEditSave').disabled=false;
+    }
+    $('pcEditSave').addEventListener('click', savePartnerEdit);
+    $('pcEditCancel').addEventListener('click', closePartnerEdit);
+    $('pcEditClose').addEventListener('click', closePartnerEdit);
+    $('pcEditModal').addEventListener('click', e=>{ if(e.target.id==='pcEditModal') closePartnerEdit(); });
+
+    // ---- Per-row history ----
+    async function openPartnerHistory(pk){
+      const r=pcRow(pk);
+      $('pcHistTitle').textContent = r ? (r.channel_name||r.asset_label||'channel') : 'channel';
+      $('pcHistBody').innerHTML='<div class="mprogress">Loading history…</div>';
+      $('pcHistModal').removeAttribute('hidden');
+      try{
+        const res=await fetch(PARTNER_HIST+'?channel_pk=eq.'+pk+'&order=edited_at.desc&limit=200',{ headers:HEADERS, cache:'no-store' });
+        const rows=await res.json();
+        if(!rows.length){ $('pcHistBody').innerHTML='<div class="pcempty">No edits recorded yet.</div>'; return; }
+        $('pcHistBody').innerHTML = rows.map(h=>{
+          const when=new Date(h.edited_at).toLocaleString();
+          return '<div class="pchrow"><div class="pchtop"><b>'+esc(PLABEL[h.field]||h.field)+'</b>'+
+            '<span class="pchby">'+esc(h.edited_by||'—')+' · '+esc(when)+'</span></div>'+
+            '<div class="pchdiff"><span class="pchold">'+esc(h.old_value||'(empty)')+'</span> → <span class="pchnew">'+esc(h.new_value||'(empty)')+'</span></div></div>';
+        }).join('');
+      }catch(e){ $('pcHistBody').innerHTML='<div class="pcempty">Could not load history: '+esc(e.message)+'</div>'; }
+    }
+    $('pcHistClose').addEventListener('click', ()=>$('pcHistModal').setAttribute('hidden',''));
+    $('pcHistModal').addEventListener('click', e=>{ if(e.target.id==='pcHistModal') $('pcHistModal').setAttribute('hidden',''); });
   </script>
 </body>
 </html>
