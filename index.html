@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-histtimeline-v36 -->
+  <!-- build: partner-addrequired-v37 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1075,7 +1075,10 @@
       $('pcEditSave').disabled=true;
       try{
         if(pcMode==='add'){
-          if(!vals.channel_name && !vals.channel_url){ throw new Error('Enter a channel name or URL.'); }
+          const req=[['channel_name','Channel Name'],['channel_url','Channel URL'],['vvv_name','VVV Name'],['asset_label','VVV ID / Asset Label']];
+          const missing=req.filter(([k])=>!vals[k]).map(([,lbl])=>lbl);
+          if(!editor) missing.push('Claimant name');
+          if(missing.length){ throw new Error('Fill in all required fields: '+missing.join(', ')+'.'); }
           setPcStatus('Adding…');
           const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
             headers:{ ...HEADERS, 'Content-Type':'application/json' },
