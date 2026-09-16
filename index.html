@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-autodate-v27 -->
+  <!-- build: partner-formorder-v28 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -808,11 +808,11 @@
     const PARTNER_EDIT_FN = SUPABASE_URL + '/functions/v1/edit_partner_channel';
     // editable fields in the Add/Edit form (Status, MC Team, Date removed — Date is auto-captured on save)
     const PFIELDS = [
-      {k:'channel_name', label:'Channel'},
-      {k:'notes',        label:'Notes', area:true},
-      {k:'channel_url',  label:'Channel URL'},
+      {k:'channel_name', label:'Channel Name', full:true},
+      {k:'channel_url',  label:'Channel URL', full:true},
       {k:'vvv_name',     label:'VVV Name'},
       {k:'asset_label',  label:'VVV ID / Asset Label'},
+      {k:'notes',        label:'Notes', area:true},
     ];
     // full label map (incl. non-editable/auto fields) so History labels everything
     const PLABEL = { channel_name:'Channel', status:'Status', mc_team:'MC Team', date_text:'Date',
@@ -901,7 +901,7 @@
     function setPcStatus(m,cls){ const s=$('pcEditStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
     function renderPcForm(vals){
       $('pcEditForm').innerHTML = PFIELDS.map(f=>
-        '<label class="pcf'+(f.area?' full':'')+'">'+esc(f.label)+
+        '<label class="pcf'+((f.area||f.full)?' full':'')+'">'+esc(f.label)+
         (f.area ? '<textarea data-k="'+f.k+'" rows="2"></textarea>' : '<input data-k="'+f.k+'" type="text">')+'</label>').join('');
       PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = (vals&&vals[f.k])||''; });
       // populate the "your name" suggestions from the team names in the data
