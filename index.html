@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-vvvname-v31 -->
+  <!-- build: partner-dupvvv-v32 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -164,6 +164,8 @@
     .pcnamex{flex:none; background:none; border:none; color:var(--bad); cursor:pointer; font-size:12px; padding:6px 9px; border-radius:7px}
     .pcnamex:hover{background:var(--bad); color:#fff}
     .pcnamenew{color:var(--faint); font-size:12px; padding:8px 10px}
+    .pcdup{margin:8px 0 2px; padding:9px 12px; border-radius:8px; background:rgba(239,68,68,.12); border:1px solid var(--bad); color:var(--bad); font:600 12px 'Plus Jakarta Sans',sans-serif}
+    .pcdup a{color:var(--accent-2)}
     .pcnotes{margin-top:6px; border:1px solid var(--line); border-radius:9px; padding:2px 12px; background:var(--card)}
     .pcnotes summary{cursor:pointer; font:600 12px 'Plus Jakarta Sans',sans-serif; color:var(--muted); padding:8px 0; list-style:none}
     .pcnotes summary::-webkit-details-marker{display:none}
@@ -347,6 +349,7 @@
       <h2 id="pcEditTitle"></h2>
       <p class="mnote">Saved to the search database and logged in the channel's history.</p>
       <div id="pcEditForm" class="pcgrid"></div>
+      <div id="pcDupWarn" class="pcdup" hidden></div>
       <div class="pcname-wrap">
         <div class="pcname-lbl">Claimant name <span style="font-weight:400">(select or type — recorded in history &amp; set as MC Team; ✕ removes a name)</span></div>
         <input type="text" id="pcEditor" placeholder="Select or type the claimant name" autocomplete="off">
@@ -851,12 +854,23 @@
 
     const PHAY_KEYS=['channel_name','vvv_name','asset_label','channel_url','status','mc_team','date_text','notes'];
     function phay(r){ return PHAY_KEYS.map(k=>r[k]||'').join(' ').toLowerCase(); }
-    let vvvNameMap = {};   // VVV code (e.g. "VVV074") -> its VVV Name, from the existing data
+    let vvvNameMap = {};      // "VVV074" -> its VVV Name
+    let assetFullByVvv = {};  // "VVV074" -> full asset label e.g. "VVV074 | CSMC81"
+    let urlIndex = {};        // normalized channel URL -> {name, pk}
+    let ucIndex  = {};        // youtube channel id (UCxxxx) -> {name, pk}
+    function normUrl(u){ return String(u||'').trim().toLowerCase().replace(/^https?:\/\/(www\.)?/,'').replace(/\/+$/,''); }
+    function ucId(u){ const m=String(u||'').match(/UC[\w-]{20,}/); return m?m[0]:''; }
     function ingestDistri(rows){
       distriData = rows.map(r=>{ r._hay=phay(r); return r; });
-      vvvNameMap = {};
-      distriData.forEach(r=>{ const name=(r.vvv_name||'').trim(); if(!name) return;
-        const m=(r.asset_label||'').toUpperCase().match(/VVV\d+/); if(m && !vvvNameMap[m[0]]) vvvNameMap[m[0]]=name; });
+      vvvNameMap={}; assetFullByVvv={}; urlIndex={}; ucIndex={};
+      distriData.forEach(r=>{
+        const asset=(r.asset_label||'').trim(), name=(r.vvv_name||'').trim();
+        const m=asset.toUpperCase().match(/VVV\d+/);
+        if(m){ if(name && !vvvNameMap[m[0]]) vvvNameMap[m[0]]=name; if(asset && !assetFullByVvv[m[0]]) assetFullByVvv[m[0]]=asset; }
+        const url=(r.channel_url||'').trim();
+        if(url){ const nu=normUrl(url); if(!urlIndex[nu]) urlIndex[nu]={name:r.channel_name||url, pk:r.pk};
+          const uc=ucId(url); if(uc && !ucIndex[uc]) ucIndex[uc]={name:r.channel_name||url, pk:r.pk}; }
+      });
       runDistri();
     }
     async function initDistri(force){
@@ -943,7 +957,7 @@
       // Notes (collapsible, at the very bottom) — auto-open if it already has content
       const notes=(vals&&vals.notes)||'';
       $('pcNotes').value=notes; $('pcNotesWrap').open = !!notes.trim();
-      $('pcEditor').value=''; hideNameDrop();
+      $('pcEditor').value=''; hideNameDrop(); $('pcDupWarn').hidden=true;
       setPcStatus('','');
       $('pcEditModal').removeAttribute('hidden');
       setTimeout(()=>{ const first=$('pcEditForm').querySelector('input'); if(first) first.focus(); },30);
@@ -975,12 +989,30 @@
       }
     });
     document.addEventListener('mousedown', e=>{ if(!e.target.closest('.pcname-wrap')) hideNameDrop(); });
-    // auto-fill VVV Name from the VVV ID / Asset Label as it's typed (both Add and Edit)
+    // duplicate check: warn if the Channel URL already exists in the database
+    function checkDup(){
+      const urlEl=$('pcEditForm').querySelector('[data-k="channel_url"]');
+      const warn=$('pcDupWarn'); if(!warn) return;
+      const url=urlEl?urlEl.value.trim():'';
+      let hit=null;
+      if(url){ const uc=ucId(url); hit = urlIndex[normUrl(url)] || (uc?ucIndex[uc]:null) || null; }
+      if(hit && pcMode==='edit' && hit.pk===pcEditPk) hit=null;          // ignore the channel's own URL when editing
+      if(hit){ warn.innerHTML='⚠ This Channel URL already exists — <b>'+esc(hit.name)+'</b>. Adding it will create a duplicate.'; warn.hidden=false; }
+      else warn.hidden=true;
+    }
+    // as the VVV ID / Asset Label is typed: fill VVV Name + complete the full asset label; and check dup URLs
     $('pcEditForm').addEventListener('input', e=>{
-      if(e.target.getAttribute('data-k')!=='asset_label') return;
-      const m=e.target.value.toUpperCase().match(/VVV\d+/);
-      const nameEl=$('pcEditForm').querySelector('[data-k="vvv_name"]');
-      if(nameEl && m && vvvNameMap[m[0]]) nameEl.value=vvvNameMap[m[0]];
+      const k=e.target.getAttribute('data-k');
+      if(k==='asset_label'){
+        const raw=e.target.value.trim(), m=raw.toUpperCase().match(/VVV\d+/);
+        if(m){
+          const nameEl=$('pcEditForm').querySelector('[data-k="vvv_name"]');
+          if(nameEl && vvvNameMap[m[0]]) nameEl.value=vvvNameMap[m[0]];
+          if(/^VVV\d+$/i.test(raw) && assetFullByVvv[m[0]] && assetFullByVvv[m[0]].toUpperCase()!==raw.toUpperCase()){
+            e.target.value=assetFullByVvv[m[0]];                          // e.g. "VVV074" -> "VVV074 | CSMC81"
+          }
+        }
+      } else if(k==='channel_url'){ checkDup(); }
     });
     function openPartnerEdit(pk){
       const r=pcRow(pk); if(!r) return; pcEditPk=pk; pcMode='edit';
