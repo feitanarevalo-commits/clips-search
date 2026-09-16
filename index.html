@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-delete-v34 -->
+  <!-- build: partner-vidfull-v35 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -143,7 +143,9 @@
     .cinfo-list li b.drm{font-weight:700; color:var(--accent-2); background:var(--card); border:1px solid var(--accent-soft);
       border-radius:6px; padding:2px 9px; cursor:pointer; transition:background .12s,border-color .12s,color .12s}
     .cinfo-list li b.drm:hover{background:var(--accent); color:#fff; border-color:var(--accent)}
-    .distri-cols{grid-template-columns:minmax(120px,1.3fr) minmax(120px,1.3fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(110px,1.3fr) minmax(250px,1.9fr); min-width:1000px}
+    .distri-cols{grid-template-columns:minmax(160px,1.7fr) minmax(115px,1.25fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(105px,1.25fr) minmax(250px,1.9fr); min-width:1040px}
+    .distri-cols .vid{overflow:visible; white-space:normal; overflow-wrap:anywhere}
+    .trow.distri-cols{align-items:start}
     .pact.del{color:var(--bad)}
     .pact.del:hover{border-color:var(--bad); background:rgba(239,68,68,.12)}
     .btn.danger{background:var(--bad); color:#fff; border-color:var(--bad)}
@@ -949,7 +951,7 @@
       const url=(r.channel_url||'').trim(), idv=(r.asset_label||'').trim();
       const view = url ? '<a class="pact" href="'+esc(url)+'" target="_blank" rel="noopener">View ↗</a>' : '<span class="pact off">View</span>';
       return '<div class="trow distri-cols" data-pk="'+r.pk+'">'+
-        '<div class="tcell mono strong copyable" data-copy="'+esc(idv)+'" title="'+esc(idv)+' — click to copy">'+esc(idv||'—')+'</div>'+
+        '<div class="tcell mono strong copyable vid" data-copy="'+esc(idv)+'" title="'+esc(idv)+' — click to copy">'+esc(idv||'—')+'</div>'+
         tc(r.vvv_name)+ tc(r.channel_name,'strong')+ tc(r.mc_team)+ tc(r.date_text)+ tc(r.notes)+
         '<div class="tcell pactions">'+view+
           '<button class="pact edit" data-edit="'+r.pk+'">Edit</button>'+
