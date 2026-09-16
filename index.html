@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-dupvvv-v32 -->
+  <!-- build: partner-nostatus-v33 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -143,7 +143,7 @@
     .cinfo-list li b.drm{font-weight:700; color:var(--accent-2); background:var(--card); border:1px solid var(--accent-soft);
       border-radius:6px; padding:2px 9px; cursor:pointer; transition:background .12s,border-color .12s,color .12s}
     .cinfo-list li b.drm:hover{background:var(--accent); color:#fff; border-color:var(--accent)}
-    .distri-cols{grid-template-columns:minmax(120px,1.3fr) minmax(110px,1.2fr) minmax(130px,1.5fr) minmax(80px,.9fr) minmax(78px,.9fr) minmax(80px,.9fr) minmax(110px,1.3fr) minmax(190px,1.4fr); min-width:1010px}
+    .distri-cols{grid-template-columns:minmax(120px,1.3fr) minmax(120px,1.3fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(120px,1.4fr) minmax(190px,1.4fr); min-width:930px}
     .pactions{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
     .pact{font:600 12px 'Plus Jakarta Sans',sans-serif; padding:4px 10px; border-radius:7px; border:1px solid var(--line); background:var(--card); color:var(--accent-2); cursor:pointer; text-decoration:none; white-space:nowrap}
     .pact:hover{border-color:var(--accent); background:var(--accent-soft)}
@@ -925,7 +925,7 @@
     }
     $('dexport').addEventListener('click', exportPartners);
     function distriHeader(){
-      return '<div class="thead distri-cols"><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>Status</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Actions</div></div>';
+      return '<div class="thead distri-cols"><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Actions</div></div>';
     }
     function tc(v, cls){ v=(v==null?'':String(v)).trim(); return '<div class="tcell'+(cls?' '+cls:'')+'" title="'+esc(v)+'">'+esc(v||'—')+'</div>'; }
     function distriRow(r){
@@ -933,7 +933,7 @@
       const view = url ? '<a class="pact" href="'+esc(url)+'" target="_blank" rel="noopener">View ↗</a>' : '<span class="pact off">View</span>';
       return '<div class="trow distri-cols" data-pk="'+r.pk+'">'+
         '<div class="tcell mono strong copyable" data-copy="'+esc(idv)+'" title="'+esc(idv)+' — click to copy">'+esc(idv||'—')+'</div>'+
-        tc(r.vvv_name)+ tc(r.channel_name,'strong')+ tc(r.status)+ tc(r.mc_team)+ tc(r.date_text)+ tc(r.notes)+
+        tc(r.vvv_name)+ tc(r.channel_name,'strong')+ tc(r.mc_team)+ tc(r.date_text)+ tc(r.notes)+
         '<div class="tcell pactions">'+view+
           '<button class="pact edit" data-edit="'+r.pk+'">Edit</button>'+
           '<button class="pact hist" data-hist="'+r.pk+'">History</button>'+
