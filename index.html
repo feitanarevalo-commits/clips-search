@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-formorder-v28 -->
+  <!-- build: partner-claimant-v29 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -153,6 +153,19 @@
     .pcf.full{grid-column:1 / -1}
     .pcf input,.pcf textarea{font:400 13px system-ui,sans-serif; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); resize:vertical}
     .pcf input:focus,.pcf textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); outline:none}
+    .pcmrow{margin:2px 0 0}
+    .pclink{background:none; border:none; color:var(--accent-2); font:600 11.5px 'Plus Jakarta Sans',sans-serif; cursor:pointer; padding:2px 0; text-decoration:underline}
+    .pcmanage{border:1px solid var(--line); border-radius:9px; padding:7px; margin:5px 0; max-height:170px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:6px; background:var(--card)}
+    .pcmitem{display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); border-radius:999px; padding:3px 4px 3px 10px; font-size:12px; color:var(--text)}
+    .pcmx{background:none; border:none; color:var(--bad); cursor:pointer; font-size:11px; line-height:1; padding:2px 5px; border-radius:50%}
+    .pcmx:hover{background:var(--accent-soft)}
+    .pcnotes{margin-top:6px; border:1px solid var(--line); border-radius:9px; padding:2px 12px; background:var(--card)}
+    .pcnotes summary{cursor:pointer; font:600 12px 'Plus Jakarta Sans',sans-serif; color:var(--muted); padding:8px 0; list-style:none}
+    .pcnotes summary::-webkit-details-marker{display:none}
+    .pcnotes summary::before{content:'▸  '; color:var(--faint)}
+    .pcnotes[open] summary::before{content:'▾  '}
+    .pcnotes textarea{width:100%; box-sizing:border-box; font:400 13px system-ui,sans-serif; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); resize:vertical; margin:0 0 8px}
+    .pcnotes textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); outline:none}
     .pchbody{max-height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:4px}
     .pchrow{border:1px solid var(--line); border-radius:9px; padding:9px 12px; background:var(--card)}
     .pchtop{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:4px}
@@ -329,9 +342,15 @@
       <h2 id="pcEditTitle"></h2>
       <p class="mnote">Saved to the search database and logged in the channel's history.</p>
       <div id="pcEditForm" class="pcgrid"></div>
-      <label>Your name <span style="font-weight:400">(select or type — recorded in history)</span>
-        <input type="text" id="pcEditor" list="pcEditorList" placeholder="Select or type your name" autocomplete="off">
+      <label>Claimant name <span style="font-weight:400">(select or type — recorded in history &amp; set as MC Team)</span>
+        <input type="text" id="pcEditor" list="pcEditorList" placeholder="Select or type the claimant name" autocomplete="off">
         <datalist id="pcEditorList"></datalist></label>
+      <div class="pcmrow"><button type="button" id="pcManageBtn" class="pclink">Manage names</button></div>
+      <div id="pcManageList" class="pcmanage" hidden></div>
+      <details id="pcNotesWrap" class="pcnotes">
+        <summary>Notes</summary>
+        <textarea id="pcNotes" rows="3" placeholder="Add notes…"></textarea>
+      </details>
       <div class="mprogress" id="pcEditStatus"></div>
       <div class="mactions"><button class="btn" id="pcEditCancel">Cancel</button><button class="btn primary" id="pcEditSave">Save changes</button></div>
     </div>
@@ -806,14 +825,19 @@
     const PARTNER_ALL     = SUPABASE_URL + '/rest/v1/rpc/all_partner_channels';   // returns ALL rows (bypasses the 1000-row cap)
     const PARTNER_HIST    = SUPABASE_URL + '/rest/v1/partner_channels_history';
     const PARTNER_EDIT_FN = SUPABASE_URL + '/functions/v1/edit_partner_channel';
-    // editable fields in the Add/Edit form (Status, MC Team, Date removed — Date is auto-captured on save)
+    // editable grid fields (Notes handled separately as a collapsible at the bottom; MC Team = claimant name; Date auto)
     const PFIELDS = [
       {k:'channel_name', label:'Channel Name', full:true},
       {k:'channel_url',  label:'Channel URL', full:true},
       {k:'vvv_name',     label:'VVV Name'},
       {k:'asset_label',  label:'VVV ID / Asset Label'},
-      {k:'notes',        label:'Notes', area:true},
     ];
+    const PARTNER_CLAIMANTS = SUPABASE_URL + '/rest/v1/partner_claimants';
+    let claimantNames = [];
+    async function loadClaimants(){
+      try{ const r=await fetch(PARTNER_CLAIMANTS+'?select=name&order=name.asc',{ headers:HEADERS, cache:'no-store' });
+        claimantNames=(await r.json()).map(x=>x.name).filter(Boolean); }catch(e){ claimantNames=[]; }
+    }
     // full label map (incl. non-editable/auto fields) so History labels everything
     const PLABEL = { channel_name:'Channel', status:'Status', mc_team:'MC Team', date_text:'Date',
                      notes:'Notes', channel_url:'Channel URL', vvv_name:'VVV Name', asset_label:'VVV ID' };
@@ -829,6 +853,7 @@
       distriLoading=true;
       dstatus.textContent='Loading partner channels…';
       dresults.innerHTML=Array.from({length:6}).map(()=>'<div class="skel"></div>').join('');
+      loadClaimants();
       try{
         const res=await fetch(PARTNER_ALL,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' }, body:'{}', cache:'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
@@ -899,18 +924,44 @@
     // ---- Edit a channel (password-gated once per session; every change is logged) ----
     function pcRow(pk){ return distriData && distriData.find(r=>r.pk===pk); }
     function setPcStatus(m,cls){ const s=$('pcEditStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
+    function renderClaimantList(){
+      $('pcEditorList').innerHTML = claimantNames.map(n=>'<option value="'+esc(n)+'"></option>').join('');
+    }
     function renderPcForm(vals){
       $('pcEditForm').innerHTML = PFIELDS.map(f=>
-        '<label class="pcf'+((f.area||f.full)?' full':'')+'">'+esc(f.label)+
-        (f.area ? '<textarea data-k="'+f.k+'" rows="2"></textarea>' : '<input data-k="'+f.k+'" type="text">')+'</label>').join('');
+        '<label class="pcf'+(f.full?' full':'')+'">'+esc(f.label)+'<input data-k="'+f.k+'" type="text"></label>').join('');
       PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = (vals&&vals[f.k])||''; });
-      // populate the "your name" suggestions from the team names in the data
-      const names=[...new Set((distriData||[]).map(r=>(r.mc_team||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-      $('pcEditorList').innerHTML = names.map(n=>'<option value="'+esc(n)+'"></option>').join('');
+      // Notes (collapsible, at the very bottom) — auto-open if it already has content
+      const notes=(vals&&vals.notes)||'';
+      $('pcNotes').value=notes; $('pcNotesWrap').open = !!notes.trim();
+      renderClaimantList();
+      $('pcManageList').hidden=true; $('pcEditor').value='';
       setPcStatus('','');
       $('pcEditModal').removeAttribute('hidden');
       setTimeout(()=>$('pcEditor').focus(),30);
     }
+    // ---- Manage claimant names (remove) ----
+    $('pcManageBtn').addEventListener('click', ()=>{
+      const box=$('pcManageList');
+      if(!box.hidden){ box.hidden=true; return; }
+      box.innerHTML = claimantNames.length
+        ? claimantNames.map(n=>'<div class="pcmitem"><span>'+esc(n)+'</span><button type="button" class="pcmx" data-rm="'+esc(n)+'" title="Remove">✕</button></div>').join('')
+        : '<div class="pcempty" style="padding:8px">No names yet.</div>';
+      box.hidden=false;
+    });
+    $('pcManageList').addEventListener('click', async e=>{
+      const b=e.target.closest('[data-rm]'); if(!b) return;
+      const name=b.dataset.rm; b.disabled=true;
+      try{
+        const res=await fetch(PARTNER_EDIT_FN,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' },
+          body: JSON.stringify({ remove_claimant:name }) });
+        if(!res.ok){ const j=await res.json().catch(()=>({})); throw new Error(j.error||('HTTP '+res.status)); }
+        claimantNames=claimantNames.filter(n=>n!==name);
+        renderClaimantList();
+        b.closest('.pcmitem').remove();
+        showToast('Removed '+name);
+      }catch(err){ b.disabled=false; showToast('Remove failed'); }
+    });
     function openPartnerEdit(pk){
       const r=pcRow(pk); if(!r) return; pcEditPk=pk; pcMode='edit';
       $('pcEditTitle').textContent = 'Edit — '+(r.channel_name || r.asset_label || 'channel');
@@ -924,11 +975,13 @@
       renderPcForm(null);
     }
     function closePartnerEdit(){ $('pcEditModal').setAttribute('hidden',''); }
+    function rememberClaimant(name){ if(name && !claimantNames.includes(name)){ claimantNames.push(name); claimantNames.sort((a,b)=>a.localeCompare(b)); } }
     async function savePartnerEdit(){
       const editor=$('pcEditor').value.trim();
-      if(!editor){ setPcStatus('Select or enter your name (recorded in history).','err'); return; }
+      if(!editor){ setPcStatus('Select or enter the claimant name (recorded in history & MC Team).','err'); return; }
       const vals={};
       PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) vals[f.k]=el.value.trim(); });
+      vals.notes = $('pcNotes').value.trim();
       $('pcEditSave').disabled=true;
       try{
         if(pcMode==='add'){
@@ -939,14 +992,14 @@
             body: JSON.stringify({ add:true, changes:vals, edited_by:editor }) });
           const j=await res.json().catch(()=>({}));
           if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
+          rememberClaimant(editor);
           closePartnerEdit();
           showToast('Channel added');
           await initDistri(true);                                            // reload so the new channel appears
         } else {
           const r=pcRow(pcEditPk); if(!r) return;
-          const changes={};
-          PFIELDS.forEach(f=>{ const ov=(r[f.k]||'').trim(); if(vals[f.k]!==ov) changes[f.k]=vals[f.k]; });
-          if(!Object.keys(changes).length){ setPcStatus('No changes to save.','err'); $('pcEditSave').disabled=false; return; }
+          const changes={};                                                  // only fields the user changed (server also sets MC Team + Date)
+          Object.keys(vals).forEach(k=>{ const ov=(r[k]||'').trim(); if(vals[k]!==ov) changes[k]=vals[k]; });
           setPcStatus('Saving…');
           const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
             headers:{ ...HEADERS, 'Content-Type':'application/json' },
@@ -954,8 +1007,9 @@
           const j=await res.json().catch(()=>({}));
           if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
           Object.entries(changes).forEach(([k,v])=>{ r[k]=v||null; });
-          if(j.date) r.date_text=j.date;                                   // auto-captured last-edit date
-          r._hay=phay(r);
+          if(j.mc_team) r.mc_team=j.mc_team;                                // claimant -> MC Team
+          if(j.date) r.date_text=j.date;                                    // auto last-edit date
+          rememberClaimant(editor); r._hay=phay(r);
           runDistri();
           showToast('Saved');
           closePartnerEdit();
