@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-export-v25 -->
+  <!-- build: partner-noPW-v26 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -329,10 +329,9 @@
       <h2 id="pcEditTitle"></h2>
       <p class="mnote">Saved to the search database and logged in the channel's history.</p>
       <div id="pcEditForm" class="pcgrid"></div>
-      <label>Your name / initials <span style="font-weight:400">(recorded in history)</span>
-        <input type="text" id="pcEditor" placeholder="e.g. Ron" autocomplete="off"></label>
-      <label id="pcEditPwWrap">Edit password
-        <input type="password" id="pcEditPw" placeholder="Required to save" autocomplete="off"></label>
+      <label>Your name <span style="font-weight:400">(select or type — recorded in history)</span>
+        <input type="text" id="pcEditor" list="pcEditorList" placeholder="Select or type your name" autocomplete="off">
+        <datalist id="pcEditorList"></datalist></label>
       <div class="mprogress" id="pcEditStatus"></div>
       <div class="mactions"><button class="btn" id="pcEditCancel">Cancel</button><button class="btn primary" id="pcEditSave">Save changes</button></div>
     </div>
@@ -818,7 +817,7 @@
       {k:'asset_label',  label:'VVV ID / Asset Label'},
     ];
     const PLABEL = Object.fromEntries(PFIELDS.map(f=>[f.k,f.label]));
-    let distriData=null, distriLoading=false, partnerEditPw='', pcEditPk=null, pcMode='edit';
+    let distriData=null, distriLoading=false, pcEditPk=null, pcMode='edit';
     const dq=$('dq'), dstatus=$('dstatus'), dresults=$('dresults'), dclear=$('dclear');
 
     function phay(r){ return PFIELDS.map(f=>r[f.k]||'').join(' ').toLowerCase(); }
@@ -904,8 +903,10 @@
         '<label class="pcf'+(f.area?' full':'')+'">'+esc(f.label)+
         (f.area ? '<textarea data-k="'+f.k+'" rows="2"></textarea>' : '<input data-k="'+f.k+'" type="text">')+'</label>').join('');
       PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = (vals&&vals[f.k])||''; });
-      $('pcEditPwWrap').style.display = partnerEditPw ? 'none' : '';
-      $('pcEditPw').value=''; setPcStatus('','');
+      // populate the "your name" suggestions from the team names in the data
+      const names=[...new Set((distriData||[]).map(r=>(r.mc_team||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+      $('pcEditorList').innerHTML = names.map(n=>'<option value="'+esc(n)+'"></option>').join('');
+      setPcStatus('','');
       $('pcEditModal').removeAttribute('hidden');
       setTimeout(()=>$('pcEditor').focus(),30);
     }
@@ -924,9 +925,7 @@
     function closePartnerEdit(){ $('pcEditModal').setAttribute('hidden',''); }
     async function savePartnerEdit(){
       const editor=$('pcEditor').value.trim();
-      if(!editor){ setPcStatus('Enter your name / initials.','err'); return; }
-      const pw = partnerEditPw || $('pcEditPw').value.trim();
-      if(!pw){ setPcStatus('Enter the edit password.','err'); return; }
+      if(!editor){ setPcStatus('Select or enter your name (recorded in history).','err'); return; }
       const vals={};
       PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) vals[f.k]=el.value.trim(); });
       $('pcEditSave').disabled=true;
@@ -935,11 +934,10 @@
           if(!vals.channel_name && !vals.channel_url){ throw new Error('Enter a channel name or URL.'); }
           setPcStatus('Adding…');
           const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
-            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-edit-token':pw },
+            headers:{ ...HEADERS, 'Content-Type':'application/json' },
             body: JSON.stringify({ add:true, changes:vals, edited_by:editor }) });
           const j=await res.json().catch(()=>({}));
           if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
-          partnerEditPw=pw;
           closePartnerEdit();
           showToast('Channel added');
           await initDistri(true);                                            // reload so the new channel appears
@@ -950,11 +948,10 @@
           if(!Object.keys(changes).length){ setPcStatus('No changes to save.','err'); $('pcEditSave').disabled=false; return; }
           setPcStatus('Saving…');
           const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
-            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-edit-token':pw },
+            headers:{ ...HEADERS, 'Content-Type':'application/json' },
             body: JSON.stringify({ pk:pcEditPk, changes, edited_by:editor }) });
           const j=await res.json().catch(()=>({}));
           if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
-          partnerEditPw=pw;                                                  // remember for this session
           Object.entries(changes).forEach(([k,v])=>{ r[k]=v||null; }); r._hay=phay(r);
           runDistri();
           showToast('Saved '+j.changed+' change'+(j.changed===1?'':'s'));
