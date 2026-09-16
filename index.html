@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-fullload-v23 -->
+  <!-- build: partner-addbtn-v24 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -283,8 +283,8 @@
             <input id="dq" placeholder="Search VVV ID, channel, or partner — any format…" autocomplete="off">
             <button class="clear" id="dclear" title="Clear">✕</button>
           </div>
-          <button class="hbtn icon" id="drefresh" title="Reload latest from the sheet" style="height:56px; width:48px">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.6 3"/><path d="M20 4v6h-6"/></svg>
+          <button class="hbtn" id="dadd" title="Add a new channel" style="height:56px; white-space:nowrap; gap:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:18px;height:18px"><path d="M12 5v14M5 12h14"/></svg>Add
           </button>
         </div>
         <div class="statusrow" id="dstatus">Loading partner channels…</div>
@@ -323,8 +323,8 @@
   <div class="modal" id="pcEditModal" hidden>
     <div class="modal-card">
       <button class="modal-x" id="pcEditClose">✕</button>
-      <h2>Edit channel — <span id="pcEditTitle"></span></h2>
-      <p class="mnote">Changes are saved to the search database and logged in this channel's history.</p>
+      <h2 id="pcEditTitle"></h2>
+      <p class="mnote">Saved to the search database and logged in the channel's history.</p>
       <div id="pcEditForm" class="pcgrid"></div>
       <label>Your name / initials <span style="font-weight:400">(recorded in history)</span>
         <input type="text" id="pcEditor" placeholder="e.g. Ron" autocomplete="off"></label>
@@ -815,7 +815,7 @@
       {k:'asset_label',  label:'VVV ID / Asset Label'},
     ];
     const PLABEL = Object.fromEntries(PFIELDS.map(f=>[f.k,f.label]));
-    let distriData=null, distriLoading=false, partnerEditPw='', pcEditPk=null;
+    let distriData=null, distriLoading=false, partnerEditPw='', pcEditPk=null, pcMode='edit';
     const dq=$('dq'), dstatus=$('dstatus'), dresults=$('dresults'), dclear=$('dclear');
 
     function phay(r){ return PFIELDS.map(f=>r[f.k]||'').join(' ').toLowerCase(); }
@@ -836,7 +836,7 @@
     const debouncedDistri=debounce(runDistri,140);
     dq.addEventListener('input', () => { dclear.style.display=dq.value?'block':'none'; debouncedDistri(); });
     dclear.addEventListener('click', () => { dq.value=''; dclear.style.display='none'; dq.focus(); runDistri(); });
-    $('drefresh').addEventListener('click', () => initDistri(true));
+    $('dadd').addEventListener('click', openPartnerAdd);
 
     function runDistri(){
       if(!distriData) return;
@@ -874,42 +874,68 @@
     // ---- Edit a channel (password-gated once per session; every change is logged) ----
     function pcRow(pk){ return distriData && distriData.find(r=>r.pk===pk); }
     function setPcStatus(m,cls){ const s=$('pcEditStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
-    function openPartnerEdit(pk){
-      const r=pcRow(pk); if(!r) return; pcEditPk=pk;
+    function renderPcForm(vals){
       $('pcEditForm').innerHTML = PFIELDS.map(f=>
         '<label class="pcf'+(f.area?' full':'')+'">'+esc(f.label)+
         (f.area ? '<textarea data-k="'+f.k+'" rows="2"></textarea>' : '<input data-k="'+f.k+'" type="text">')+'</label>').join('');
-      PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = r[f.k]||''; });
-      $('pcEditTitle').textContent = r.channel_name || r.asset_label || 'channel';
+      PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = (vals&&vals[f.k])||''; });
       $('pcEditPwWrap').style.display = partnerEditPw ? 'none' : '';
       $('pcEditPw').value=''; setPcStatus('','');
       $('pcEditModal').removeAttribute('hidden');
       setTimeout(()=>$('pcEditor').focus(),30);
     }
+    function openPartnerEdit(pk){
+      const r=pcRow(pk); if(!r) return; pcEditPk=pk; pcMode='edit';
+      $('pcEditTitle').textContent = 'Edit — '+(r.channel_name || r.asset_label || 'channel');
+      $('pcEditSave').textContent='Save changes';
+      renderPcForm(r);
+    }
+    function openPartnerAdd(){
+      pcMode='add'; pcEditPk=null;
+      $('pcEditTitle').textContent = 'Add new channel';
+      $('pcEditSave').textContent='Add channel';
+      renderPcForm(null);
+    }
     function closePartnerEdit(){ $('pcEditModal').setAttribute('hidden',''); }
     async function savePartnerEdit(){
-      const r=pcRow(pcEditPk); if(!r) return;
       const editor=$('pcEditor').value.trim();
       if(!editor){ setPcStatus('Enter your name / initials.','err'); return; }
       const pw = partnerEditPw || $('pcEditPw').value.trim();
       if(!pw){ setPcStatus('Enter the edit password.','err'); return; }
-      const changes={};
-      PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(!el) return;
-        const nv=el.value.trim(), ov=(r[f.k]||'').trim(); if(nv!==ov) changes[f.k]=nv; });
-      if(!Object.keys(changes).length){ setPcStatus('No changes to save.','err'); return; }
-      $('pcEditSave').disabled=true; setPcStatus('Saving…');
+      const vals={};
+      PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) vals[f.k]=el.value.trim(); });
+      $('pcEditSave').disabled=true;
       try{
-        const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
-          headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-edit-token':pw },
-          body: JSON.stringify({ pk:pcEditPk, changes, edited_by:editor }) });
-        const j=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
-        partnerEditPw=pw;                                                    // remember for this session
-        Object.entries(changes).forEach(([k,v])=>{ r[k]=v||null; }); r._hay=phay(r);
-        runDistri();
-        showToast('Saved '+j.changed+' change'+(j.changed===1?'':'s'));
-        closePartnerEdit();
-      }catch(e){ setPcStatus('Save failed: '+e.message, 'err'); }
+        if(pcMode==='add'){
+          if(!vals.channel_name && !vals.channel_url){ throw new Error('Enter a channel name or URL.'); }
+          setPcStatus('Adding…');
+          const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
+            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-edit-token':pw },
+            body: JSON.stringify({ add:true, changes:vals, edited_by:editor }) });
+          const j=await res.json().catch(()=>({}));
+          if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
+          partnerEditPw=pw;
+          closePartnerEdit();
+          showToast('Channel added');
+          await initDistri(true);                                            // reload so the new channel appears
+        } else {
+          const r=pcRow(pcEditPk); if(!r) return;
+          const changes={};
+          PFIELDS.forEach(f=>{ const ov=(r[f.k]||'').trim(); if(vals[f.k]!==ov) changes[f.k]=vals[f.k]; });
+          if(!Object.keys(changes).length){ setPcStatus('No changes to save.','err'); $('pcEditSave').disabled=false; return; }
+          setPcStatus('Saving…');
+          const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
+            headers:{ ...HEADERS, 'Content-Type':'application/json', 'x-edit-token':pw },
+            body: JSON.stringify({ pk:pcEditPk, changes, edited_by:editor }) });
+          const j=await res.json().catch(()=>({}));
+          if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
+          partnerEditPw=pw;                                                  // remember for this session
+          Object.entries(changes).forEach(([k,v])=>{ r[k]=v||null; }); r._hay=phay(r);
+          runDistri();
+          showToast('Saved '+j.changed+' change'+(j.changed===1?'':'s'));
+          closePartnerEdit();
+        }
+      }catch(e){ setPcStatus((pcMode==='add'?'Add':'Save')+' failed: '+e.message, 'err'); }
       $('pcEditSave').disabled=false;
     }
     $('pcEditSave').addEventListener('click', savePartnerEdit);
