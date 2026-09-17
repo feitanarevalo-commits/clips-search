@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-vvvfallback-v38 -->
+  <!-- build: partner-livesync-v39 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function(){ try{
       var t = localStorage.getItem('clips-theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
@@ -744,6 +745,7 @@
       $('tab-creators').hidden = name!=='creators';
       $('tab-distri').hidden = name!=='distri';
       $('importBtn').style.display = name==='clips' ? '' : 'none';   // Import only applies to clips
+      distriTabActive = name==='distri';
       if(name==='creators'){ initCreators(); setTimeout(()=>$('cq').focus(), 30); }
       else if(name==='distri'){ initDistri(); setTimeout(()=>$('dq').focus(), 30); }
       else setTimeout(()=>$('q').focus(), 30);
@@ -922,7 +924,30 @@
         ingestDistri(await res.json());
       }catch(e){ dstatus.textContent='Could not load partner channels: '+e.message; dresults.innerHTML=''; }
       distriLoading=false;
+      initPartnerRealtime();                                               // start live sync once data is up
     }
+    // ===== Live sync: reflect other people's Add/Edit/Delete without a manual refresh =====
+    let distriTabActive=false, pcRT=null, pcReloadT=null, pcPendingReload=false;
+    function pcModalOpen(){ return !$('pcEditModal').hasAttribute('hidden') || !$('pcDelModal').hasAttribute('hidden'); }
+    function liveReload(){                                                  // reload unless the user is mid-edit (defer to modal close)
+      if(!distriData || distriLoading) return;
+      if(pcModalOpen()){ pcPendingReload=true; return; }
+      initDistri(true);
+    }
+    function scheduleLiveReload(){ clearTimeout(pcReloadT); pcReloadT=setTimeout(liveReload, 800); }  // debounce bursts
+    function initPartnerRealtime(){
+      if(pcRT || !window.supabase || !window.supabase.createClient) return;
+      try{
+        const sb=window.supabase.createClient(SUPABASE_URL, ANON_KEY, { auth:{ persistSession:false } });
+        pcRT=sb.channel('partner_channels_live')
+          .on('postgres_changes', { event:'*', schema:'public', table:'partner_channels' }, scheduleLiveReload)
+          .subscribe();
+      }catch(e){ pcRT=null; }
+    }
+    // safety net if the websocket is ever blocked: resync when returning to the tab, + a slow poll while viewing
+    window.addEventListener('focus', ()=>{ if(distriTabActive) scheduleLiveReload(); });
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && distriTabActive) scheduleLiveReload(); });
+    setInterval(()=>{ if(distriTabActive && !document.hidden) liveReload(); }, 60000);
     const debouncedDistri=debounce(runDistri,140);
     dq.addEventListener('input', () => { dclear.style.display=dq.value?'block':'none'; debouncedDistri(); });
     dclear.addEventListener('click', () => { dq.value=''; dclear.style.display='none'; dq.focus(); runDistri(); });
@@ -1035,8 +1060,17 @@
       let hit=null;
       if(url){ const uc=ucId(url); hit = urlIndex[normUrl(url)] || (uc?ucIndex[uc]:null) || null; }
       if(hit && pcMode==='edit' && hit.pk===pcEditPk) hit=null;          // ignore the channel's own URL when editing
-      if(hit){ warn.innerHTML='⚠ This Channel URL already exists — <b>'+esc(hit.name)+'</b>. Adding it will create a duplicate.'; warn.hidden=false; }
+      if(hit){ const uc=ucId(url); warn.innerHTML='⚠ This '+(uc?'UID ('+esc(uc)+')':'Channel URL')+' already exists — <b>'+esc(hit.name)+'</b>. Adding it will create a duplicate.'; warn.hidden=false; }
       else warn.hidden=true;
+    }
+    // after an Add: filter the list to the new channel's URL/UID and flag any duplicates
+    function postAddDupScan(url){
+      if(!url){ showToast('Channel added'); return; }
+      const nu=normUrl(url), uc=ucId(url);
+      const matches=(distriData||[]).filter(r=> normUrl(r.channel_url||'')===nu || (uc && ucId(r.channel_url||'')===uc));
+      $('dq').value=url; dclear.style.display='block'; runDistri();            // show the new row + any dup(s)
+      const dups=Math.max(0, matches.length-1);
+      showToast(dups ? ('⚠ Added — '+dups+' possible duplicate'+(dups===1?'':'s')+' found') : 'Channel added — no duplicates');
     }
     // as the VVV ID / Asset Label is typed: fill VVV Name + complete the full asset label; and check dup URLs
     $('pcEditForm').addEventListener('input', e=>{
@@ -1067,7 +1101,7 @@
       $('pcEditSave').textContent='Add channel';
       renderPcForm(null);
     }
-    function closePartnerEdit(){ $('pcEditModal').setAttribute('hidden',''); }
+    function closePartnerEdit(){ $('pcEditModal').setAttribute('hidden',''); if(pcPendingReload){ pcPendingReload=false; liveReload(); } }
     function rememberClaimant(name){ if(name && !claimantNames.includes(name)){ claimantNames.push(name); claimantNames.sort((a,b)=>a.localeCompare(b)); } }
     async function savePartnerEdit(){
       const editor=$('pcEditor').value.trim();
@@ -1078,7 +1112,7 @@
       $('pcEditSave').disabled=true;
       try{
         if(pcMode==='add'){
-          const req=[['channel_name','Channel Name'],['channel_url','Channel URL'],['vvv_name','VVV Name'],['asset_label','VVV ID / Asset Label']];
+          const req=[['channel_name','Channel Name'],['channel_url','Channel URL'],['asset_label','VVV ID / Asset Label']];
           const missing=req.filter(([k])=>!vals[k]).map(([,lbl])=>lbl);
           if(!editor) missing.push('Claimant name');
           if(missing.length){ throw new Error('Fill in all required fields: '+missing.join(', ')+'.'); }
@@ -1089,9 +1123,10 @@
           const j=await res.json().catch(()=>({}));
           if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
           rememberClaimant(editor);
+          const addedUrl=vals.channel_url;
           closePartnerEdit();
-          showToast('Channel added');
           await initDistri(true);                                            // reload so the new channel appears
+          postAddDupScan(addedUrl);                                          // auto-search the new channel for possible duplicates
         } else {
           const r=pcRow(pcEditPk); if(!r) return;
           const changes={};                                                  // only fields the user changed (server also sets MC Team + Date)
@@ -1166,7 +1201,7 @@
       $('pcDelModal').removeAttribute('hidden');
       setTimeout(()=>$(adminPw?'pcDelConfirm':'pcDelPw').focus(),30);
     }
-    function closePartnerDelete(){ $('pcDelModal').setAttribute('hidden',''); }
+    function closePartnerDelete(){ $('pcDelModal').setAttribute('hidden',''); if(pcPendingReload){ pcPendingReload=false; liveReload(); } }
     async function confirmPartnerDelete(){
       const pw = adminPw || $('pcDelPw').value.trim();
       if(!pw){ setDelStatus('Enter the admin password.','err'); return; }
