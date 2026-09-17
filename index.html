@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-livesync-v40 -->
+  <!-- build: partner-addnovvvname-v41 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1014,9 +1014,10 @@
     function pcRow(pk){ return distriData && distriData.find(r=>r.pk===pk); }
     function setPcStatus(m,cls){ const s=$('pcEditStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
     function renderPcForm(vals){
-      $('pcEditForm').innerHTML = PFIELDS.map(f=>
-        '<label class="pcf'+(f.full?' full':'')+'">'+esc(f.label)+'<input data-k="'+f.k+'" type="text"></label>').join('');
-      PFIELDS.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = (vals&&vals[f.k])||''; });
+      const fields = PFIELDS.filter(f=> !(pcMode==='add' && f.k==='vvv_name'));   // Add mode hides VVV Name (auto-derived from the VVV ID)
+      $('pcEditForm').innerHTML = fields.map(f=>
+        '<label class="pcf'+(f.full||(pcMode==='add'&&f.k==='asset_label')?' full':'')+'">'+esc(f.label)+'<input data-k="'+f.k+'" type="text"></label>').join('');
+      fields.forEach(f=>{ const el=$('pcEditForm').querySelector('[data-k="'+f.k+'"]'); if(el) el.value = (vals&&vals[f.k])||''; });
       // Notes (collapsible, at the very bottom) — auto-open if it already has content
       const notes=(vals&&vals.notes)||'';
       $('pcNotes').value=notes; $('pcNotesWrap').open = !!notes.trim();
@@ -1116,6 +1117,7 @@
           const missing=req.filter(([k])=>!vals[k]).map(([,lbl])=>lbl);
           if(!editor) missing.push('Claimant name');
           if(missing.length){ throw new Error('Fill in all required fields: '+missing.join(', ')+'.'); }
+          if(!vals.vvv_name){ const m=(vals.asset_label||'').toUpperCase().match(/VVV\d+/); vals.vvv_name = m ? (vvvNameMap[m[0]]||m[0]) : ''; }  // derive VVV Name (field hidden on add)
           setPcStatus('Adding…');
           const res=await fetch(PARTNER_EDIT_FN,{ method:'POST',
             headers:{ ...HEADERS, 'Content-Type':'application/json' },
