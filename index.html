@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-bulkselect-v43 -->
+  <!-- build: partner-fitwidth-v44 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -144,8 +144,10 @@
     .cinfo-list li b.drm{font-weight:700; color:var(--accent-2); background:var(--card); border:1px solid var(--accent-soft);
       border-radius:6px; padding:2px 9px; cursor:pointer; transition:background .12s,border-color .12s,color .12s}
     .cinfo-list li b.drm:hover{background:var(--accent); color:#fff; border-color:var(--accent)}
-    .distri-cols{grid-template-columns:32px minmax(160px,1.7fr) minmax(115px,1.25fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(105px,1.25fr) minmax(250px,1.9fr); min-width:1072px}
-    .distri-cols .vid{overflow:visible; white-space:normal; overflow-wrap:anywhere}
+    /* fit the pane width — columns flex & wrap instead of forcing horizontal scroll */
+    #dresults{display:block}
+    .distri-cols{grid-template-columns:26px minmax(0,1.4fr) minmax(0,1fr) minmax(0,1.5fr) minmax(0,.8fr) minmax(0,.85fr) minmax(0,1.2fr) minmax(110px,1.3fr); min-width:0}
+    .distri-cols .tcell{overflow:visible; white-space:normal; overflow-wrap:anywhere; text-overflow:clip}
     .pcselcell{display:flex; align-items:center; justify-content:center}
     .pcselbox,#pcSelAll{width:16px; height:16px; cursor:pointer; accent-color:var(--accent,#7c9cff); margin:0}
     .pcbulkbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; padding:9px 14px; background:var(--accent-soft,rgba(124,156,255,.12)); border:1px solid var(--accent,#7c9cff); border-radius:10px}
@@ -427,8 +429,8 @@
       <label>Field to set
         <select id="pcBulkField">
           <option value="">— Just claim (set MC Team only) —</option>
-          <option value="status">Status</option>
           <option value="vvv_name">VVV Name</option>
+          <option value="asset_label">VVV ID / Asset Label</option>
           <option value="notes">Notes</option>
         </select></label>
       <label id="pcBulkValWrap" hidden>New value
