@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-fitwidth-v44 -->
+  <!-- build: partner-bulkvvvfill-v45 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1136,12 +1136,24 @@
       setTimeout(()=>$('pcBulkEditor').focus(),30);
     });
     $('pcBulkField').addEventListener('change', ()=>{ $('pcBulkValWrap').hidden = !$('pcBulkField').value; if(!$('pcBulkValWrap').hidden) setTimeout(()=>$('pcBulkVal').focus(),20); });
+    // VVV ID / Asset Label: complete a bare VVV code to its full asset label as you type (same as the edit form)
+    $('pcBulkVal').addEventListener('input', ()=>{
+      if($('pcBulkField').value!=='asset_label') return;
+      const el=$('pcBulkVal'), raw=el.value.trim(), m=raw.toUpperCase().match(/VVV\d+/);
+      if(m && /^VVV\d+$/i.test(raw) && assetFullByVvv[m[0]] && assetFullByVvv[m[0]].toUpperCase()!==raw.toUpperCase()){
+        el.value=assetFullByVvv[m[0]];                                    // e.g. "VVV808" -> "VVV808 | CSMC..."
+      }
+    });
     function closeBulkEdit(){ $('pcBulkModal').setAttribute('hidden',''); }
     async function applyBulkEdit(){
       const editor=$('pcBulkEditor').value.trim();
       if(!editor){ setBulkStatus('Enter the claimant name (set as MC Team & logged).','err'); return; }
       const field=$('pcBulkField').value;
       const changes={}; if(field) changes[field]=$('pcBulkVal').value.trim();
+      if(field==='asset_label'){                                          // auto-populate VVV Name too, like the form
+        const m=(changes.asset_label||'').toUpperCase().match(/VVV\d+/);
+        if(m) changes.vvv_name = vvvNameMap[m[0]] || m[0];
+      }
       const pks=[...pcSel];
       $('pcBulkApply').disabled=true; setBulkStatus('Applying to '+pks.length+' channel'+(pks.length===1?'':'s')+'…');
       try{
