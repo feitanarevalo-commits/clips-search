@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Directory</title>
-  <!-- build: partner-archive-restore-v42 -->
+  <!-- build: partner-bulkselect-v43 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -144,8 +144,16 @@
     .cinfo-list li b.drm{font-weight:700; color:var(--accent-2); background:var(--card); border:1px solid var(--accent-soft);
       border-radius:6px; padding:2px 9px; cursor:pointer; transition:background .12s,border-color .12s,color .12s}
     .cinfo-list li b.drm:hover{background:var(--accent); color:#fff; border-color:var(--accent)}
-    .distri-cols{grid-template-columns:minmax(160px,1.7fr) minmax(115px,1.25fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(105px,1.25fr) minmax(250px,1.9fr); min-width:1040px}
+    .distri-cols{grid-template-columns:32px minmax(160px,1.7fr) minmax(115px,1.25fr) minmax(140px,1.6fr) minmax(80px,.9fr) minmax(85px,.95fr) minmax(105px,1.25fr) minmax(250px,1.9fr); min-width:1072px}
     .distri-cols .vid{overflow:visible; white-space:normal; overflow-wrap:anywhere}
+    .pcselcell{display:flex; align-items:center; justify-content:center}
+    .pcselbox,#pcSelAll{width:16px; height:16px; cursor:pointer; accent-color:var(--accent,#7c9cff); margin:0}
+    .pcbulkbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; padding:9px 14px; background:var(--accent-soft,rgba(124,156,255,.12)); border:1px solid var(--accent,#7c9cff); border-radius:10px}
+    .pcbulkbar #pcBulkCount{font-weight:700; color:var(--text)}
+    .pcbulkbar .hbtn{padding:6px 12px}
+    .hbtn.danger{color:var(--bad); border-color:rgba(239,68,68,.5)}
+    .hbtn.danger:hover{background:rgba(239,68,68,.12); border-color:var(--bad)}
+    .hbtn.ghost{color:var(--muted)}
     .trow.distri-cols{align-items:start}
     .pact.del{color:var(--bad)}
     .pact.del:hover{border-color:var(--bad); background:rgba(239,68,68,.12)}
@@ -349,6 +357,12 @@
         </div>
         <div class="statusrow" id="dstatus">Loading partner channels…</div>
       </div>
+      <div class="pcbulkbar" id="pcBulkBar" hidden>
+        <span id="pcBulkCount">0 selected</span>
+        <button class="hbtn" id="pcBulkEdit" title="Apply a change to all selected channels">✎ Bulk edit</button>
+        <button class="hbtn danger" id="pcBulkDel" title="Delete all selected channels (admin)">🗑 Bulk delete</button>
+        <button class="hbtn ghost" id="pcBulkClear">Clear selection</button>
+      </div>
       <div class="grid" id="dresults"></div>
     </div>
   </div>
@@ -398,6 +412,29 @@
       </details>
       <div class="mprogress" id="pcEditStatus"></div>
       <div class="mactions"><button class="btn" id="pcEditCancel">Cancel</button><button class="btn primary" id="pcEditSave">Save changes</button></div>
+    </div>
+  </div>
+
+  <!-- bulk edit modal -->
+  <div class="modal" id="pcBulkModal" hidden>
+    <div class="modal-card">
+      <button class="modal-x" id="pcBulkClose">✕</button>
+      <h2>Bulk edit — <span id="pcBulkN"></span> channel(s)</h2>
+      <p class="mnote">Applies the change to every selected channel. Logged in each channel's history; MC Team is set to the claimant.</p>
+      <label>Claimant name
+        <input id="pcBulkEditor" list="pcClaimDL" placeholder="Required — set as MC Team & recorded in history" autocomplete="off">
+        <datalist id="pcClaimDL"></datalist></label>
+      <label>Field to set
+        <select id="pcBulkField">
+          <option value="">— Just claim (set MC Team only) —</option>
+          <option value="status">Status</option>
+          <option value="vvv_name">VVV Name</option>
+          <option value="notes">Notes</option>
+        </select></label>
+      <label id="pcBulkValWrap" hidden>New value
+        <input id="pcBulkVal" placeholder="Value to apply to all selected" autocomplete="off"></label>
+      <div class="mprogress" id="pcBulkStatus"></div>
+      <div class="mactions"><button class="btn" id="pcBulkCancel">Cancel</button><button class="btn" id="pcBulkApply">Apply to selected</button></div>
     </div>
   </div>
 
@@ -921,6 +958,7 @@
     const PLABEL = { channel_name:'Channel', status:'Status', mc_team:'MC Team', date_text:'Date',
                      notes:'Notes', channel_url:'Channel URL', vvv_name:'VVV Name', asset_label:'VVV ID' };
     let distriData=null, distriLoading=false, pcEditPk=null, pcMode='edit';
+    let pcSel=new Set(), pcShown=[];   // multi-select for bulk actions
     const dq=$('dq'), dstatus=$('dstatus'), dresults=$('dresults'), dclear=$('dclear');
 
     const PHAY_KEYS=['channel_name','vvv_name','asset_label','channel_url','status','mc_team','date_text','notes'];
@@ -933,6 +971,7 @@
     function ucId(u){ const m=String(u||'').match(/UC[\w-]{20,}/); return m?m[0]:''; }
     function ingestDistri(rows){
       distriData = rows.map(r=>{ r._hay=phay(r); return r; });
+      if(pcSel.size){ const live=new Set(distriData.map(r=>r.pk)); [...pcSel].forEach(pk=>{ if(!live.has(pk)) pcSel.delete(pk); }); }  // drop selections that no longer exist
       vvvNameMap={}; assetFullByVvv={}; urlIndex={}; ucIndex={};
       distriData.forEach(r=>{
         const asset=(r.asset_label||'').trim(), name=(r.vvv_name||'').trim();
@@ -997,8 +1036,10 @@
       if(!distriData) return;
       const rows=filteredDistri();
       const shown=rows.slice(0,300);
+      pcShown=shown.map(r=>r.pk);
       dstatus.innerHTML='<b style="color:var(--text)">'+rows.length.toLocaleString()+'</b> of '+distriData.length.toLocaleString()+' channels'+(rows.length>300?' · showing first 300':'');
       dresults.innerHTML = shown.length ? (distriHeader()+shown.map(distriRow).join('')) : emptyState(dq.value.trim()||'that search');
+      updateBulkBar();
     }
     // ---- Export to CSV (respects the current search; exports ALL matches, not just the shown 300) ----
     function csvCell(v){ v=(v==null?'':String(v)); return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
@@ -1019,13 +1060,14 @@
     }
     $('dexport').addEventListener('click', exportPartners);
     function distriHeader(){
-      return '<div class="thead distri-cols"><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Actions</div></div>';
+      return '<div class="thead distri-cols"><div class="pcselcell"><input type="checkbox" id="pcSelAll" title="Select all shown"></div><div>VVV ID</div><div>VVV Name</div><div>Channel</div><div>MC Team</div><div>Date</div><div>Notes</div><div>Actions</div></div>';
     }
     function tc(v, cls){ v=(v==null?'':String(v)).trim(); return '<div class="tcell'+(cls?' '+cls:'')+'" title="'+esc(v)+'">'+esc(v||'—')+'</div>'; }
     function distriRow(r){
       const url=(r.channel_url||'').trim(), idv=(r.asset_label||'').trim();
       const view = url ? '<a class="pact" href="'+esc(url)+'" target="_blank" rel="noopener">View ↗</a>' : '<span class="pact off">View</span>';
       return '<div class="trow distri-cols" data-pk="'+r.pk+'">'+
+        '<div class="tcell pcselcell"><input type="checkbox" class="pcselbox" data-sel="'+r.pk+'"'+(pcSel.has(r.pk)?' checked':'')+'></div>'+
         '<div class="tcell mono strong copyable vid" data-copy="'+esc(idv)+'" title="'+esc(idv)+' — click to copy">'+esc(idv||'—')+'</div>'+
         tc(r.vvv_name)+ tc(r.channel_name,'strong')+ tc(r.mc_team)+ tc(r.date_text)+ tc(r.notes)+
         '<div class="tcell pactions">'+view+
@@ -1042,6 +1084,79 @@
       const hi=e.target.closest('[data-hist]'); if(hi){ openPartnerHistory(+hi.dataset.hist); return; }
       const de=e.target.closest('[data-del]'); if(de){ openPartnerDelete(+de.dataset.del); return; }
     });
+
+    // ---- Multi-select + bulk actions ----
+    function updateBulkBar(){
+      const n=pcSel.size;
+      const bar=$('pcBulkBar'); if(bar){ bar.hidden = n===0; $('pcBulkCount').textContent = n+' selected'; }
+      const all=$('pcSelAll');
+      if(all){ const sel=pcShown.filter(pk=>pcSel.has(pk)).length;
+        all.checked = pcShown.length>0 && sel===pcShown.length;
+        all.indeterminate = sel>0 && sel<pcShown.length; }
+    }
+    function clearSel(){ pcSel.clear(); runDistri(); }   // runDistri re-renders (unchecks) + updateBulkBar
+    dresults.addEventListener('change', e=>{
+      const t=e.target;
+      if(t.id==='pcSelAll'){
+        if(t.checked) pcShown.forEach(pk=>pcSel.add(pk)); else pcShown.forEach(pk=>pcSel.delete(pk));
+        dresults.querySelectorAll('.pcselbox').forEach(cb=>{ cb.checked = pcSel.has(+cb.dataset.sel); });
+        updateBulkBar(); return;
+      }
+      if(t.classList.contains('pcselbox')){ const pk=+t.dataset.sel; if(t.checked) pcSel.add(pk); else pcSel.delete(pk); updateBulkBar(); }
+    });
+    $('pcBulkClear').addEventListener('click', clearSel);
+
+    // Bulk delete (admin password; archived + restorable)
+    $('pcBulkDel').addEventListener('click', async ()=>{
+      const n=pcSel.size; if(!n) return;
+      if(!confirm('Delete '+n+' selected channel'+(n===1?'':'s')+'? They will be moved to the Archive and can be restored.')) return;
+      let pw=adminPw; if(!pw){ pw=(prompt('Admin password to delete '+n+' channel'+(n===1?'':'s')+':')||'').trim(); if(!pw) return; }
+      const pks=[...pcSel]; showToast('Deleting '+n+'…');
+      try{
+        const res=await fetch(PARTNER_EDIT_FN,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' },
+          body: JSON.stringify({ bulk_delete:true, pks, admin_password:pw, deleted_by:'admin' }) });
+        const j=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+        adminPw=pw; pcSel.clear();
+        showToast('Deleted '+(j.deleted||0)+' channel'+((j.deleted===1)?'':'s')+' — moved to Archive'+(j.failed&&j.failed.length?' ('+j.failed.length+' failed)':''));
+        await initDistri(true);
+      }catch(e){ showToast('Bulk delete failed: '+e.message); }
+    });
+
+    // Bulk edit modal
+    function setBulkStatus(m,cls){ const s=$('pcBulkStatus'); s.textContent=m; s.className='mprogress'+(cls?' '+cls:''); }
+    $('pcBulkEdit').addEventListener('click', ()=>{
+      if(!pcSel.size){ showToast('Select channels first'); return; }
+      $('pcBulkN').textContent = pcSel.size;
+      $('pcClaimDL').innerHTML = claimantNames.map(n=>'<option value="'+esc(n)+'"></option>').join('');
+      $('pcBulkEditor').value=''; $('pcBulkField').value=''; $('pcBulkVal').value=''; $('pcBulkValWrap').hidden=true; setBulkStatus('');
+      $('pcBulkModal').removeAttribute('hidden');
+      setTimeout(()=>$('pcBulkEditor').focus(),30);
+    });
+    $('pcBulkField').addEventListener('change', ()=>{ $('pcBulkValWrap').hidden = !$('pcBulkField').value; if(!$('pcBulkValWrap').hidden) setTimeout(()=>$('pcBulkVal').focus(),20); });
+    function closeBulkEdit(){ $('pcBulkModal').setAttribute('hidden',''); }
+    async function applyBulkEdit(){
+      const editor=$('pcBulkEditor').value.trim();
+      if(!editor){ setBulkStatus('Enter the claimant name (set as MC Team & logged).','err'); return; }
+      const field=$('pcBulkField').value;
+      const changes={}; if(field) changes[field]=$('pcBulkVal').value.trim();
+      const pks=[...pcSel];
+      $('pcBulkApply').disabled=true; setBulkStatus('Applying to '+pks.length+' channel'+(pks.length===1?'':'s')+'…');
+      try{
+        const res=await fetch(PARTNER_EDIT_FN,{ method:'POST', headers:{ ...HEADERS, 'Content-Type':'application/json' },
+          body: JSON.stringify({ bulk_edit:true, pks, changes, edited_by:editor }) });
+        const j=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+        rememberClaimant(editor); pcSel.clear(); closeBulkEdit();
+        showToast('Updated '+(j.changed||0)+' channel'+((j.changed===1)?'':'s')+(j.failed&&j.failed.length?' ('+j.failed.length+' failed)':''));
+        await initDistri(true);
+      }catch(e){ setBulkStatus('Bulk edit failed: '+e.message,'err'); }
+      $('pcBulkApply').disabled=false;
+    }
+    $('pcBulkApply').addEventListener('click', applyBulkEdit);
+    $('pcBulkCancel').addEventListener('click', closeBulkEdit);
+    $('pcBulkClose').addEventListener('click', closeBulkEdit);
+    $('pcBulkModal').addEventListener('click', e=>{ if(e.target.id==='pcBulkModal') closeBulkEdit(); });
 
     // ---- Edit a channel (password-gated once per session; every change is logged) ----
     function pcRow(pk){ return distriData && distriData.find(r=>r.pk===pk); }
